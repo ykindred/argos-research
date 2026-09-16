@@ -1,0 +1,45 @@
+# ARGOS
+
+**Agentic Research Group Orchestration System**
+
+ARGOS is a lightweight multi-agent research system for advancing human-defined research problems through structured reasoning, experimentation, evaluation, and critique.
+
+## v0.1 Research Loop
+
+Human / Main Research Question
+
+→ Research Manager (RM)
+
+→ Independent Research Agents (RA)
+
+→ Research Manager synthesis and selection
+
+→ Experiment Agent (EA)
+
+→ Deterministic Evaluator
+
+→ Research Manager
+
+→ Critic
+
+→ Next research cycle
+
+## Status
+
+ARGOS is currently in early development.
+
+The v0.1 goal is to build a minimal end-to-end research loop with persistent research state, structured agent communication, reproducible experiment execution, objective evaluation, and independent critique.
+
+## Documentation
+
+- [v0.1 Architecture](docs/architecture-v0.1.md)
+- [Development Principles](docs/development-principles.md)
+
+## Development
+
+Requires Python 3.11+.
+
+```bash
+uv sync --extra dev
+uv run pytest
+
