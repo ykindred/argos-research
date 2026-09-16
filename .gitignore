@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# ARGOS runtime
+.argos/
+*.db
+logs/
+artifacts/
+worktrees/
+
+# Secrets
+.env
+.env.*
+!.env.example
