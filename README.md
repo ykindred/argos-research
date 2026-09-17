@@ -33,7 +33,9 @@ validation and a deterministic fake LLM backend. It also provides implementation
 coding backends and isolated Git-worktree build/test/run execution with durable
 evidence and process timeouts. Deterministic project-command evaluation now adds
 strict metrics/constraints, clean baseline execution, pinned comparisons, and
-persistent neutral Observations. The complete research loop is
+persistent neutral Observations. Independent Critic review adds blind claim/evidence
+input, validated verdicts, durable review feedback and deterministic fake tests.
+The complete research loop is
 not yet implemented. See the state-store and research-agent documentation for
 persistence and human approval boundaries.
 
@@ -48,6 +50,7 @@ The v0.1 goal is to build a minimal end-to-end research loop with persistent res
 - [Research Manager and Research Agents](docs/research-agents.md)
 - [Experiment Agent and Isolated Execution](docs/execution.md)
 - [Evaluator, Observations and Baselines](docs/evaluation.md)
+- [Independent Critic](docs/critic.md)
 
 ## Development
 
