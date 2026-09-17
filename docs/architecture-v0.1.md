@@ -84,21 +84,22 @@ RAs primarily produce:
 - expected effects;
 - possible validation methods.
 
-Formal experiment execution belongs to EA.
+EA implements experiments; deterministic execution code runs them after EA exits.
 
 ## 5. Experiment Agent
 
-EA executes an explicit ExperimentSpec.
+EA implements the requested change from an explicit ExperimentSpec.
 
 Responsibilities:
 
 - understand the requested experiment;
 - modify code;
-- build;
-- test;
-- run the experiment;
-- preserve logs and artifacts;
-- return ExperimentResult.
+- perform necessary implementation repairs;
+- return CodingResult and exit.
+
+Deterministic execution code then builds, tests, runs and evaluates the experiment,
+preserves logs/artifacts, and returns ExperimentResult. A failure requires an
+explicit decision before invoking EA again.
 
 EA must not decide whether a scientific hypothesis is true.
 
@@ -151,13 +152,16 @@ Core entities:
 
 - Project
 - Subproblem
-- ResearchBranch
+- ResearchBranch (independent/shared/blind context policy)
+- Task
 - Hypothesis
 - Experiment
 - Run
 - Observation
 - Claim
 - Decision
+- Evidence
+- Baseline
 
 Every important scientific conclusion must be traceable to observations, runs, and experiments.
 
@@ -242,3 +246,16 @@ The following are explicitly deferred beyond v0.1:
 - semantic / vector research memory;
 - web dashboard;
 - automatic paper generation.
+
+## 15. Updated shared-contract boundaries
+
+The full user-provided architecture and project policy supersede conflicting old
+role descriptions. Human approval protects direction, main question, evaluator,
+baseline and held-out protocol. RM is triggered by completed events with a bounded
+briefing and performs synthesis itself. At least three independent RA branches
+are supported, including falsification. Logical parallel exploration and separate
+finite LLM/coding/CPU/GPU semaphores coexist with synchronous research cycles.
+
+See [shared models](shared-models-v0.1.md) for Task, full experiment lifecycle,
+baseline history, validity semantics, and the remaining runtime guarantees. These
+contracts do not implement persistence, runtime enforcement or human approval.

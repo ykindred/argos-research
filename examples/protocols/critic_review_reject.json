@@ -1,0 +1,15 @@
+{
+  "claim_id": "00000000-0000-4000-8000-000000000008",
+  "created_at": "2026-09-18T08:00:00Z",
+  "verdict": "reject",
+  "rationale": "A single workload cannot establish the claimed general effect.",
+  "weaknesses": [
+    "Only one workload was measured."
+  ],
+  "risks": [
+    "The effect may depend on the workload."
+  ],
+  "requested_checks": [
+    "Narrow the claim to the measured workload."
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "experiment_id": "00000000-0000-4000-8000-000000000005",
+  "run_id": "00000000-0000-4000-8000-000000000006",
+  "evaluated_at": "2026-09-18T08:01:01Z",
+  "protocol_name": "fixed-benchmark-v1",
+  "measurements": [
+    {
+      "name": "latency_ms",
+      "value": 12.0,
+      "unit": "ms",
+      "direction": "minimize"
+    }
+  ],
+  "constraint_checks": [
+    {
+      "name": "latency_ms <= 10",
+      "passed": false,
+      "measured_value": 12.0,
+      "threshold": 10.0
+    }
+  ],
+  "artifacts": [
+    "runs/6/raw.json"
+  ],
+  "status": "ok"
+}

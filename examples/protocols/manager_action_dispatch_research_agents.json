@@ -1,0 +1,45 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Investigate the measured latency effect.",
+  "action": {
+    "action_type": "dispatch_research_agents",
+    "tasks": [
+      {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "project_id": "00000000-0000-4000-8000-000000000001",
+        "subproblem_id": "00000000-0000-4000-8000-000000000002",
+        "question": "Would caching repeated computations reduce latency?",
+        "main_research_question": "Can runtime be reduced without changing outputs?",
+        "context": "Baseline latency is 10 ms on the fixed benchmark.",
+        "perspective": "Source analysis",
+        "evidence": [],
+        "branch_id": "00000000-0000-4000-8000-000000000030",
+        "context_policy": "independent"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "project_id": "00000000-0000-4000-8000-000000000001",
+        "subproblem_id": "00000000-0000-4000-8000-000000000002",
+        "question": "Would caching repeated computations reduce latency?",
+        "main_research_question": "Can runtime be reduced without changing outputs?",
+        "context": "Baseline latency is 10 ms on the fixed benchmark.",
+        "perspective": "Alternative explanation",
+        "evidence": [],
+        "branch_id": "00000000-0000-4000-8000-000000000031",
+        "context_policy": "independent"
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "project_id": "00000000-0000-4000-8000-000000000001",
+        "subproblem_id": "00000000-0000-4000-8000-000000000002",
+        "question": "Would caching repeated computations reduce latency?",
+        "main_research_question": "Can runtime be reduced without changing outputs?",
+        "context": "Baseline latency is 10 ms on the fixed benchmark.",
+        "perspective": "Falsification",
+        "evidence": [],
+        "branch_id": "00000000-0000-4000-8000-000000000032",
+        "context_policy": "independent"
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Investigate the measured latency effect.",
+  "action": {
+    "action_type": "update_subproblem",
+    "subproblem_id": "00000000-0000-4000-8000-000000000002",
+    "question": "Would caching repeated computations reduce latency?"
+  }
+}

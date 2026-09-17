@@ -1,0 +1,54 @@
+{
+  "experiment_id": "00000000-0000-4000-8000-000000000005",
+  "run_id": "00000000-0000-4000-8000-000000000006",
+  "status": "succeeded",
+  "started_at": "2026-09-18T08:00:00Z",
+  "finished_at": "2026-09-18T08:01:00Z",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resulting_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "configuration": {
+    "seed": 42,
+    "cache": true
+  },
+  "commands": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "build"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "pytest"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "python",
+        "benchmark.py",
+        "--seed",
+        "42"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "artifacts": [
+    "runs/6/raw.json"
+  ],
+  "failure": null,
+  "worktree": "worktrees/experiment-5",
+  "diff_path": "runs/6/change.diff",
+  "stdout_path": "runs/6/stdout.log",
+  "stderr_path": "runs/6/stderr.log"
+}

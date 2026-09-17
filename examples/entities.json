@@ -1,0 +1,554 @@
+{
+  "project": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "name": "Example research project",
+    "config": {
+      "research_context": "Study runtime on a fixed benchmark.",
+      "main_research_question": "Can runtime be reduced without changing outputs?",
+      "source_repository": "/research/example",
+      "build_command": [
+        "python",
+        "-m",
+        "build"
+      ],
+      "test_command": [
+        "python",
+        "-m",
+        "pytest"
+      ],
+      "evaluation_protocol": {
+        "name": "fixed-benchmark-v1",
+        "command": [
+          "python",
+          "evaluate.py"
+        ],
+        "metric_names": [
+          "latency_ms"
+        ],
+        "constraints": [
+          "latency_ms <= 10"
+        ]
+      },
+      "scope": {
+        "editable_paths": [
+          "src/**",
+          "tests/**"
+        ],
+        "protected_paths": [
+          "evaluate.py",
+          "data/**",
+          "baseline/**"
+        ]
+      },
+      "resource_limits": {
+        "timeout_seconds": 120,
+        "max_memory_mb": 1024,
+        "max_cpu_cores": 1
+      },
+      "research_charter": "# Research Charter\nReduce runtime while preserving outputs; human owns direction.",
+      "research_direction": "Computational efficiency",
+      "held_out_test_protocol": "Fixed held-out inputs v1; no tuning on these inputs.",
+      "resources": {
+        "llm_slots": 4,
+        "coding_slots": 1,
+        "cpu_jobs": 1,
+        "gpu_jobs": 1
+      },
+      "limits": {
+        "max_cycles": 30,
+        "max_experiments": 50,
+        "stagnation_cycles": 5
+      }
+    },
+    "status": "active",
+    "created_at": "2026-09-18T08:00:00Z"
+  },
+  "subproblem": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "question": "Would caching repeated computations reduce latency?",
+    "status": "active",
+    "created_at": "2026-09-18T08:00:00Z",
+    "updated_at": "2026-09-18T08:00:00Z"
+  },
+  "research_branch": {
+    "id": "00000000-0000-4000-8000-000000000003",
+    "subproblem_id": "00000000-0000-4000-8000-000000000002",
+    "name": "Caching",
+    "description": "Investigate bounded reuse.",
+    "status": "active",
+    "created_at": "2026-09-18T08:00:00Z",
+    "context_policy": "independent"
+  },
+  "hypothesis": {
+    "id": "00000000-0000-4000-8000-000000000004",
+    "subproblem_id": "00000000-0000-4000-8000-000000000002",
+    "branch_id": "00000000-0000-4000-8000-000000000003",
+    "statement": "Caching reduces latency below 10 ms.",
+    "rationale": "Repeated work may be reusable.",
+    "status": "contradicted",
+    "created_at": "2026-09-18T08:00:00Z",
+    "updated_at": "2026-09-18T08:00:00Z"
+  },
+  "experiment": {
+    "id": "00000000-0000-4000-8000-000000000005",
+    "spec": {
+      "experiment_id": "00000000-0000-4000-8000-000000000005",
+      "hypothesis_id": "00000000-0000-4000-8000-000000000004",
+      "hypothesis_statement": "Caching reduces latency below 10 ms.",
+      "goal": "Measure the latency effect of caching.",
+      "requested_change": "Add bounded caching to repeated computations.",
+      "build_steps": [
+        [
+          "python",
+          "-m",
+          "build"
+        ]
+      ],
+      "test_steps": [
+        [
+          "python",
+          "-m",
+          "pytest"
+        ]
+      ],
+      "run_steps": [
+        [
+          "python",
+          "benchmark.py",
+          "--seed",
+          "42"
+        ]
+      ],
+      "evaluation_protocol": {
+        "name": "fixed-benchmark-v1",
+        "command": [
+          "python",
+          "evaluate.py"
+        ],
+        "metric_names": [
+          "latency_ms"
+        ],
+        "constraints": [
+          "latency_ms <= 10"
+        ]
+      },
+      "resource_limits": {
+        "timeout_seconds": 120,
+        "max_memory_mb": 1024,
+        "max_cpu_cores": 1
+      },
+      "scope": {
+        "editable_paths": [
+          "src/**",
+          "tests/**"
+        ],
+        "protected_paths": [
+          "evaluate.py",
+          "data/**",
+          "baseline/**"
+        ]
+      },
+      "prediction": "Latency falls below 10 ms.",
+      "success_criteria": [
+        "Latency below 10 ms with unchanged outputs."
+      ],
+      "failure_criteria": [
+        "Valid measurements at or above 10 ms."
+      ],
+      "resource_class": "cpu"
+    },
+    "branch_id": "00000000-0000-4000-8000-000000000003",
+    "status": "completed",
+    "created_at": "2026-09-18T08:00:00Z"
+  },
+  "run": {
+    "id": "00000000-0000-4000-8000-000000000006",
+    "experiment_id": "00000000-0000-4000-8000-000000000005",
+    "status": "succeeded",
+    "result": {
+      "experiment_id": "00000000-0000-4000-8000-000000000005",
+      "run_id": "00000000-0000-4000-8000-000000000006",
+      "status": "succeeded",
+      "started_at": "2026-09-18T08:00:00Z",
+      "finished_at": "2026-09-18T08:01:00Z",
+      "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "resulting_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "configuration": {
+        "seed": 42,
+        "cache": true
+      },
+      "commands": [
+        {
+          "argv": [
+            "python",
+            "-m",
+            "build"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "python",
+            "-m",
+            "pytest"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "python",
+            "benchmark.py",
+            "--seed",
+            "42"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "artifacts": [
+        "runs/6/raw.json"
+      ],
+      "failure": null,
+      "worktree": "worktrees/experiment-5",
+      "diff_path": "runs/6/change.diff",
+      "stdout_path": "runs/6/stdout.log",
+      "stderr_path": "runs/6/stderr.log"
+    },
+    "evaluation": {
+      "experiment_id": "00000000-0000-4000-8000-000000000005",
+      "run_id": "00000000-0000-4000-8000-000000000006",
+      "evaluated_at": "2026-09-18T08:01:01Z",
+      "protocol_name": "fixed-benchmark-v1",
+      "measurements": [
+        {
+          "name": "latency_ms",
+          "value": 12.0,
+          "unit": "ms",
+          "direction": "minimize"
+        }
+      ],
+      "constraint_checks": [
+        {
+          "name": "latency_ms <= 10",
+          "passed": false,
+          "measured_value": 12.0,
+          "threshold": 10.0
+        }
+      ],
+      "artifacts": [
+        "runs/6/raw.json"
+      ],
+      "status": "ok"
+    },
+    "created_at": "2026-09-18T08:00:00Z"
+  },
+  "observation": {
+    "id": "00000000-0000-4000-8000-000000000007",
+    "run_id": "00000000-0000-4000-8000-000000000006",
+    "evaluation": {
+      "experiment_id": "00000000-0000-4000-8000-000000000005",
+      "run_id": "00000000-0000-4000-8000-000000000006",
+      "evaluated_at": "2026-09-18T08:01:01Z",
+      "protocol_name": "fixed-benchmark-v1",
+      "measurements": [
+        {
+          "name": "latency_ms",
+          "value": 12.0,
+          "unit": "ms",
+          "direction": "minimize"
+        }
+      ],
+      "constraint_checks": [
+        {
+          "name": "latency_ms <= 10",
+          "passed": false,
+          "measured_value": 12.0,
+          "threshold": 10.0
+        }
+      ],
+      "artifacts": [
+        "runs/6/raw.json"
+      ],
+      "status": "ok"
+    },
+    "created_at": "2026-09-18T08:01:02Z",
+    "summary": "Measured latency 12 ms exceeds 10 ms threshold.",
+    "relation": "contradicts"
+  },
+  "claim": {
+    "id": "00000000-0000-4000-8000-000000000008",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "statement": "Caching reduces latency below 10 ms.",
+    "evidence": {
+      "supporting_observation_ids": [],
+      "contradicting_observation_ids": [
+        "00000000-0000-4000-8000-000000000007"
+      ]
+    },
+    "status": "rejected",
+    "created_at": "2026-09-18T08:00:00Z",
+    "scope": "The configured synthetic workload and approved evaluation protocol only."
+  },
+  "decision": {
+    "id": "00000000-0000-4000-8000-000000000009",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "actor": "rm",
+    "summary": "Request independent review.",
+    "rationale": "Review the evidence before another cycle.",
+    "references": [
+      {
+        "entity_type": "claim",
+        "entity_id": "00000000-0000-4000-8000-000000000008"
+      }
+    ],
+    "action": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "rationale": "Check the claim against the evidence.",
+      "action": {
+        "action_type": "request_critic_review",
+        "claim_id": "00000000-0000-4000-8000-000000000008"
+      }
+    },
+    "created_at": "2026-09-18T08:00:00Z",
+    "cycle": 1,
+    "decision_type": "review_requested"
+  },
+  "task": {
+    "id": "00000000-0000-4000-8000-000000000010",
+    "created_at": "2026-09-18T08:00:00Z",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "kind": "explore",
+    "resource_class": "llm",
+    "references": [
+      {
+        "entity_type": "research_branch",
+        "entity_id": "00000000-0000-4000-8000-000000000003"
+      }
+    ],
+    "status": "completed",
+    "started_at": "2026-09-18T08:00:00Z",
+    "finished_at": "2026-09-18T08:01:00Z"
+  },
+  "evidence": {
+    "id": "00000000-0000-4000-8000-000000000011",
+    "created_at": "2026-09-18T08:00:00Z",
+    "claim_id": "00000000-0000-4000-8000-000000000008",
+    "observation_id": "00000000-0000-4000-8000-000000000007",
+    "run_id": "00000000-0000-4000-8000-000000000006",
+    "relation": "contradicts"
+  },
+  "baseline": {
+    "id": "00000000-0000-4000-8000-000000000012",
+    "created_at": "2026-09-18T08:01:02Z",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "run_id": "00000000-0000-4000-8000-000000000015",
+    "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluation": {
+      "experiment_id": "00000000-0000-4000-8000-000000000014",
+      "run_id": "00000000-0000-4000-8000-000000000015",
+      "evaluated_at": "2026-09-18T08:01:01Z",
+      "protocol_name": "fixed-benchmark-v1",
+      "measurements": [
+        {
+          "name": "latency_ms",
+          "value": 10,
+          "unit": "ms",
+          "direction": "minimize"
+        }
+      ],
+      "constraint_checks": [
+        {
+          "name": "latency_ms <= 10",
+          "passed": true,
+          "measured_value": 10,
+          "threshold": 10.0
+        }
+      ],
+      "artifacts": [
+        "runs/15/raw.json"
+      ],
+      "status": "ok"
+    },
+    "approval_decision_id": "00000000-0000-4000-8000-000000000013"
+  },
+  "baseline_decision": {
+    "id": "00000000-0000-4000-8000-000000000013",
+    "created_at": "2026-09-18T08:00:00Z",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "cycle": 0,
+    "decision_type": "baseline_initialization",
+    "actor": "human",
+    "summary": "Approve baseline initialization.",
+    "rationale": "Establish a fixed comparison from a clean checkout.",
+    "references": [
+      {
+        "entity_type": "baseline",
+        "entity_id": "00000000-0000-4000-8000-000000000012"
+      }
+    ]
+  },
+  "baseline_experiment": {
+    "id": "00000000-0000-4000-8000-000000000014",
+    "spec": {
+      "experiment_id": "00000000-0000-4000-8000-000000000014",
+      "hypothesis_id": "00000000-0000-4000-8000-000000000004",
+      "hypothesis_statement": "Caching reduces latency below 10 ms.",
+      "goal": "Measure the unchanged baseline.",
+      "requested_change": "No code change; evaluate the clean baseline.",
+      "build_steps": [
+        [
+          "python",
+          "-m",
+          "build"
+        ]
+      ],
+      "test_steps": [
+        [
+          "python",
+          "-m",
+          "pytest"
+        ]
+      ],
+      "run_steps": [
+        [
+          "python",
+          "benchmark.py",
+          "--seed",
+          "42"
+        ]
+      ],
+      "evaluation_protocol": {
+        "name": "fixed-benchmark-v1",
+        "command": [
+          "python",
+          "evaluate.py"
+        ],
+        "metric_names": [
+          "latency_ms"
+        ],
+        "constraints": [
+          "latency_ms <= 10"
+        ]
+      },
+      "resource_limits": {
+        "timeout_seconds": 120,
+        "max_memory_mb": 1024,
+        "max_cpu_cores": 1
+      },
+      "scope": {
+        "editable_paths": [
+          "src/**",
+          "tests/**"
+        ],
+        "protected_paths": [
+          "evaluate.py",
+          "data/**",
+          "baseline/**"
+        ]
+      },
+      "prediction": "Reference latency is 10 ms.",
+      "success_criteria": [
+        "Reference measurements are valid."
+      ],
+      "failure_criteria": [
+        "Reference evaluation is invalid."
+      ],
+      "resource_class": "cpu"
+    },
+    "branch_id": null,
+    "status": "completed",
+    "created_at": "2026-09-18T08:00:00Z"
+  },
+  "baseline_run": {
+    "id": "00000000-0000-4000-8000-000000000015",
+    "experiment_id": "00000000-0000-4000-8000-000000000014",
+    "status": "succeeded",
+    "result": {
+      "experiment_id": "00000000-0000-4000-8000-000000000014",
+      "run_id": "00000000-0000-4000-8000-000000000015",
+      "status": "succeeded",
+      "started_at": "2026-09-18T08:00:00Z",
+      "finished_at": "2026-09-18T08:01:00Z",
+      "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "resulting_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "configuration": {
+        "seed": 42,
+        "cache": false
+      },
+      "commands": [
+        {
+          "argv": [
+            "python",
+            "-m",
+            "build"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "python",
+            "-m",
+            "pytest"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "python",
+            "benchmark.py",
+            "--seed",
+            "42"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "artifacts": [
+        "runs/15/raw.json"
+      ],
+      "failure": null,
+      "worktree": "worktrees/baseline-12",
+      "diff_path": "runs/15/change.diff",
+      "stdout_path": "runs/15/stdout.log",
+      "stderr_path": "runs/15/stderr.log"
+    },
+    "evaluation": {
+      "experiment_id": "00000000-0000-4000-8000-000000000014",
+      "run_id": "00000000-0000-4000-8000-000000000015",
+      "evaluated_at": "2026-09-18T08:01:01Z",
+      "protocol_name": "fixed-benchmark-v1",
+      "measurements": [
+        {
+          "name": "latency_ms",
+          "value": 10,
+          "unit": "ms",
+          "direction": "minimize"
+        }
+      ],
+      "constraint_checks": [
+        {
+          "name": "latency_ms <= 10",
+          "passed": true,
+          "measured_value": 10,
+          "threshold": 10.0
+        }
+      ],
+      "artifacts": [
+        "runs/15/raw.json"
+      ],
+      "status": "ok"
+    },
+    "created_at": "2026-09-18T08:00:00Z"
+  }
+}

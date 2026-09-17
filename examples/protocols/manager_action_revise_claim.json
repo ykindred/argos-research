@@ -1,0 +1,16 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Investigate the measured latency effect.",
+  "action": {
+    "action_type": "revise_claim",
+    "claim_id": "00000000-0000-4000-8000-000000000008",
+    "statement": "Caching reduces latency below 10 ms.",
+    "evidence": {
+      "supporting_observation_ids": [],
+      "contradicting_observation_ids": [
+        "00000000-0000-4000-8000-000000000007"
+      ]
+    },
+    "scope": "The configured synthetic workload and approved evaluation protocol only."
+  }
+}
