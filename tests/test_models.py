@@ -23,6 +23,7 @@ ENTITIES = {
     "decision": models.Decision,
     "baseline_decision": models.Decision,
     "task": models.Task,
+    "failed_task": models.Task,
     "evidence": models.Evidence,
     "baseline": models.Baseline,
     "baseline_run": models.Run,
@@ -508,3 +509,26 @@ def test_invalid_metric_direction():
     data["measurements"][0]["direction"] = "improve"
     with pytest.raises(ValidationError):
         protocols.EvaluatorResult.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"started_at": None},
+        {"started_at": "2026-09-18T07:59:59Z"},
+        {
+            "status": "failed",
+            "failure": "Dispatch rejected",
+            "started_at": None,
+            "finished_at": "2026-09-18T07:59:59Z",
+        },
+    ],
+)
+def test_task_rejects_missing_start_or_precreation_timestamps(updates):
+    with pytest.raises(ValidationError):
+        models.Task.model_validate(dict(entity("task"), **updates))
+
+
+def test_task_can_fail_before_execution_starts():
+    data = dict(entity("task"), status="failed", started_at=None, failure="Dispatch rejected")
+    assert_roundtrip(models.Task.model_validate(data))

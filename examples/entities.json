@@ -549,5 +549,24 @@
       "status": "ok"
     },
     "created_at": "2026-09-18T08:00:00Z"
+  },
+  "failed_task": {
+    "id": "00000000-0000-4000-8000-000000000016",
+    "created_at": "2026-09-18T08:00:00Z",
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "kind": "explore",
+    "resource_class": "llm",
+    "references": [
+      {
+        "entity_type": "research_branch",
+        "entity_id": "00000000-0000-4000-8000-000000000003"
+      }
+    ],
+    "status": "failed",
+    "started_at": "2026-09-18T08:00:00Z",
+    "finished_at": "2026-09-18T08:01:00Z",
+    "repair_attempts": 1,
+    "failure": "Structured output remained invalid after one repair; no research outputs published.",
+    "output_references": []
   }
 }

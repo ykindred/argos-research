@@ -172,6 +172,11 @@ class Task(Entity):
             raise ValueError("Exactly terminal tasks require finished_at")
         if self.status == "running" and self.started_at is None:
             raise ValueError("Running tasks require started_at")
+        if self.status == "completed" and self.started_at is None:
+            raise ValueError("Completed tasks require started_at")
+        for timestamp in (self.started_at, self.finished_at):
+            if timestamp is not None and timestamp < self.created_at:
+                raise ValueError("Task execution timestamps must not precede creation")
         if self.started_at and self.finished_at and self.finished_at < self.started_at:
             raise ValueError("Task finish must not precede start")
         if (self.status in ("failed", "timeout")) != (self.failure is not None):

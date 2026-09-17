@@ -571,3 +571,49 @@ def test_read_snapshot_uses_one_database_transaction(store):
     assert statements[0] == "BEGIN"
     assert statements[-1] == "ROLLBACK"
     assert statements.count("BEGIN") == 1
+
+
+def test_task_repair_budget_and_dispatch_survive_restart(tmp_path):
+    path = tmp_path / "state.sqlite"
+    with StateStore(path) as store:
+        entities = seed(store)
+        task = store.create(
+            changed(entities["task"], id=uuid4(), status="running", finished_at=None)
+        )
+        repaired = store.update(changed(task, repair_attempts=1))
+    with StateStore(path) as store:
+        for updates in (
+            {"repair_attempts": 0},
+            {"kind": "implement"},
+            {"resource_class": "coding"},
+            {"references": []},
+            {"started_at": "2026-09-18T08:00:01Z"},
+        ):
+            with pytest.raises(StateError):
+                store.update(changed(repaired, **updates))
+            assert store.get(m.Task, task.id) == repaired
+            assert store.history(m.Task, task.id) == [task, repaired]
+        failed = store.update(
+            changed(
+                repaired,
+                status="failed",
+                failure="Structured output invalid after one repair",
+                finished_at="2026-09-18T08:01:00Z",
+            )
+        )
+        assert failed.output_references == []
+        assert store.get(m.Hypothesis, entities["hypothesis"].id) == entities["hypothesis"]
+    with StateStore(path) as store:
+        assert store.get(m.Task, task.id) == failed
+        assert store.history(m.Task, task.id) == [task, repaired, failed]
+
+
+def test_task_start_is_attached_once(store):
+    entities = seed(store)
+    pending = store.create(
+        changed(entities["task"], id=uuid4(), status="pending", started_at=None, finished_at=None)
+    )
+    running = store.update(changed(pending, status="running", started_at="2026-09-18T08:00:01Z"))
+    with pytest.raises(StateError):
+        store.update(changed(running, status="pending", started_at=None))
+    assert store.get(m.Task, pending.id) == running

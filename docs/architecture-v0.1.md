@@ -258,4 +258,6 @@ finite LLM/coding/CPU/GPU semaphores coexist with synchronous research cycles.
 
 See [shared models](shared-models-v0.1.md) for Task, full experiment lifecycle,
 baseline history, validity semantics, and the remaining runtime guarantees. These
-contracts do not implement persistence, runtime enforcement or human approval.
+contracts alone do not implement runtime enforcement or human authentication.
+SQLite persistence and audited trusted approval entry points are provided by
+[StateStore](research-state.md); runtime human input remains a separate requirement.

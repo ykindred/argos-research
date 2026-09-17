@@ -207,7 +207,7 @@ requirement is implied by this revision.
   human gates in execution/orchestration issues.
 - Preserve failures, diff, logs and provenance before cleaning failed worktrees.
   Retain evidence outside deleted worktrees; never delete the only evidence copy.
-- Later issues supply CLI, SQLite, fake backends, synthetic E2E and then one real
+- SQLite is supplied by issue #3; later issues supply CLI, fake backends, synthetic E2E and then one real
   backend. No E2E, actual isolation, recovery, real-repository run or ≥8h run is
   claimed by protocol unit tests.
 
@@ -227,7 +227,7 @@ reject invalid inputs and exercise provenance, task failure, lifecycle vocabular
 human proposal boundaries, resources and execution/scientific-result separation.
 Human review of the shared interfaces remains pending for the PR.
 
-### Validation performed for this revision
+### Prior shared-protocol validation (before the issue #3 revision)
 
 Self-review checked the diff against issue #2 and the updated role boundaries,
 failure semantics, context-isolation contract, provenance and persistence needs.
@@ -243,3 +243,13 @@ The tests validate contracts, not human authorization, actual clean worktrees,
 physical RA isolation, SQLite persistence, scheduling or process termination.
 Human interface review remains pending. No real backend, real research repository,
 synthetic runtime E2E or eight-hour runtime test was run in this protocol issue.
+
+### Task persistence revision
+
+Task completion now requires a start timestamp, and execution timestamps cannot
+precede creation. Failed dispatch may omit a start timestamp. StateStore preserves
+task kind, resource class, input references and recorded start time, and rejects
+repair-counter decreases. Persist the increment before a repair call; orchestration
+must still enforce the one-repair policy and atomically publish validated outputs.
+See [issue #3 validation and handoff](research-state.md#revision-validation-and-handoff)
+for current checks and remaining human/runtime guarantees.

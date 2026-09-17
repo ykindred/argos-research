@@ -157,26 +157,39 @@ resume processes or retry tasks; the orchestrator must interpret pending/running
 records after restart. Human review of these shared interfaces remains pending
 for the PR.
 
-### Actual validation for this change
+### Revision validation and handoff
 
-Self-review covered issue #3 acceptance criteria, transaction rollback, relationship
-ownership, immutable provenance, evaluator authority, human approval bypasses and
-scope boundaries. It added protection against tested hypothesis/evaluator drift,
-allowed deterministic build failure in the testing phase, and rejected reviews
-prepared against a stale claim. No execution failure updates scientific status.
+Project: ARGOS (`argos-research`), branch `codex/issue-3-20260917172145`.
+This revision preserves the existing issue #3 implementation and updated shared
+contracts. Self-review found that a running Task could reset its repair counter
+or replace its dispatch inputs. Task kind, resource class and input references are
+now immutable; its repair counter cannot decrease and its start timestamp cannot
+change once recorded. Completed tasks require a start timestamp; execution times
+cannot precede task creation. Pre-dispatch failures may still omit a start time.
+The failed-task example publishes no outputs and preserves the one repair attempt.
+No SQLite schema migration is needed; existing valid records retain their IDs.
+Older task payloads with inconsistent timing now fail validation when read; they
+are not silently rewritten or deleted.
 
-Validation with uv on CPython 3.12.3:
+The orchestrator must persist the repair increment **before** calling the repair
+backend, then record failure after a second invalid response. The store cannot
+count external calls or prevent a caller from creating a new task ID. Retry policy,
+atomic publication of validated outputs, event delivery and restart recovery remain
+cross-component guarantees. Human approval operations still require a trusted
+human interface; no agent-supplied label authenticates approval.
 
-- `uv run pytest -q`: **251 passed in 2.19 s**, including 26 state-store tests.
+Evidence: `tests/test_models.py`, `tests/test_state.py`, and
+`examples/entities.json` (`failed_task`). Tests cover rejection without changing
+history, close/reopen after repair, durable failure, and unchanged scientific state.
+Final validation with uv on Python 3.12.3:
+
+- `uv run pytest -q`: **260 passed in 2.27 s**.
 - `uv run ruff check src tests`: passed.
-- `uv run ruff format --check src tests`: passed, 8 files.
-- `uv build --out-dir /tmp/argos-issue3-dist`: source distribution and wheel built.
-- Installed-wheel smoke test outside the checkout on Python 3.12.3: packaged
-  `schema.sql` found and a schema-version-1 StateStore opened successfully.
-  The first smoke invocation selected an unrelated default Python 3.10.21 and
-  correctly failed the package's Python >=3.11 requirement; rerunning with
-  `/usr/bin/python3` passed.
+- `uv run ruff format --check src tests`: passed (8 files).
 - `git diff --check`: passed.
 
-Human interface review remains pending. No commits, pushes, PRs or messages were
-created by this implementation task.
+The initial format check found two test-layout differences; formatting was applied
+and the final check passed. Packaging was not rerun for this revision.
+
+No runtime E2E, real research repository, physical reboot, human approval, or
+≥8-hour run is claimed. Human interface review remains pending for the PR.

@@ -316,6 +316,14 @@ class StateStore:
             }
             if old.status != new.status and new.status not in transitions.get(old.status, set()):
                 raise StateError("Illegal experiment transition; retries use new experiments")
+        if isinstance(old, m.Task):
+            for field in ("kind", "resource_class", "references"):
+                if getattr(old, field) != getattr(new, field):
+                    raise StateError(f"Task {field} is immutable; create a new task")
+            if new.repair_attempts < old.repair_attempts:
+                raise StateError("Task repair_attempts cannot decrease")
+            if old.started_at is not None and new.started_at != old.started_at:
+                raise StateError("Task started_at is immutable once recorded")
         if isinstance(old, (m.Run, m.Task)):
             terminals = {"succeeded", "failed", "completed", "timeout", "cancelled"}
             if old.status in terminals:
