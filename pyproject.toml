@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "argos-research"
 version = "0.1.0"
-description = "Shared models for the ARGOS minimal research loop"
+description = "Shared models and persistent state for the ARGOS minimal research loop"
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.10,<3"]
 

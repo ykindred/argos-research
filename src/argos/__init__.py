@@ -1,1 +1,1 @@
-"""ARGOS v0.1 shared interfaces: entities in models, messages in protocols."""
+"""ARGOS v0.1: shared models, component protocols and persistent research state."""

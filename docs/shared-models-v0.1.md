@@ -2,8 +2,9 @@
 
 The public interfaces are `argos.models` (persistent entities), `argos.protocols`
 (component messages), and `argos.common` (shared values/enums). Python 3.11+ and
-Pydantic v2 are required. This issue defines contracts only: no SQLite store,
-agent prompts/backends, project loader, execution engine, scheduler, or loop.
+Pydantic v2 are required. The models define contracts only; SQLite persistence is
+provided separately by `argos.state`. Agent prompts/backends, project loader,
+execution engine, scheduler, and loop remain separate component work.
 The latest user-provided full architecture, task1.md, and project policy take
 precedence over older architecture/issue text. ARGOS and the `argos` package keep
 their names; the old two-developer implementation restriction does not apply.
@@ -21,7 +22,11 @@ All models reject unexpected fields and missing required fields. Enums, UUID
 identifiers, nonblank descriptive strings, finite measurements, positive integer
 resource limits, and timezone-aware timestamps are validated. Caller-assigned
 IDs and timestamps survive JSON round trips. `model_json_schema()` exposes the
-contract. Models remain domain-neutral.
+contract. Models remain domain-neutral. Persistence is now provided by
+`argos.state`; see [Research State](research-state.md) for its validation boundary,
+transaction API and trusted human approval operations. Project adds draft/proposed
+question state through `main_question_approved` (default false) and
+`proposed_main_research_question` (default null).
 
 These are validated snapshots, not authorization objects. Revalidate serialized
 messages at the state boundary after modification: in-place list mutations,

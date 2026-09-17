@@ -26,10 +26,10 @@ Human / Main Research Question
 
 ## Status
 
-ARGOS is currently in early development. This checkout defines the v0.1 shared
-Pydantic models, protocol examples and validation tests; the runtime is not yet
-implemented. See the shared-model documentation for cross-component guarantees
-and human approval requirements.
+ARGOS is currently in early development. This checkout provides the v0.1 shared
+Pydantic models and a SQLite Research State store with provenance, revision
+history and bounded snapshots. The agent runtime is not yet implemented.
+See the state-store documentation for persistence and human approval boundaries.
 
 The v0.1 goal is to build a minimal end-to-end research loop with persistent research state, structured agent communication, reproducible experiment execution, objective evaluation, and independent critique.
 
@@ -38,6 +38,7 @@ The v0.1 goal is to build a minimal end-to-end research loop with persistent res
 - [v0.1 Architecture](docs/architecture-v0.1.md)
 - [Development Principles](docs/development-principles.md)
 - [Shared Models and Protocols](docs/shared-models-v0.1.md)
+- [Research State Store](docs/research-state.md)
 
 ## Development
 
