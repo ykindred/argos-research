@@ -40,6 +40,8 @@ class Entity(Model):
 class Project(Entity):
     name: Text
     config: ProjectConfig
+    main_question_approved: bool = Field(default=False, strict=True)
+    proposed_main_research_question: Text | None = None
     baseline_id: EntityId | None = None
     status: EntityStatus = EntityStatus.ACTIVE
 
