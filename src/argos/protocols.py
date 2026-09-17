@@ -92,6 +92,7 @@ class ExperimentSpec(Model):
     evaluation_protocol: EvaluationProtocol
     resource_limits: ResourceLimits
     scope: PathScope | None = None
+    required_artifacts: list[Text] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def nonempty_commands(self) -> Self:
@@ -371,6 +372,7 @@ class CodingTask(Model):
     experiment_id: EntityId
     requested_change: Text
     scope: PathScope
+    project_scope: PathScope | None = None
 
 
 class CodingResult(Model):
