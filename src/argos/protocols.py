@@ -7,6 +7,7 @@ from pydantic import Field, JsonValue, model_validator
 
 from argos.common import (
     CommandRecord,
+    Confidence,
     ConstraintCheck,
     ContextPolicy,
     CycleLimits,
@@ -63,6 +64,7 @@ class ResearchIdea(Model):
     validation_methods: list[Text] = Field(min_length=1)
     risks: list[Text]
     assumptions: list[Text]
+    falsification_suggestions: list[Text] = Field(default_factory=list)
 
 
 class ResearchAgentResult(Model):
@@ -230,12 +232,14 @@ class ProposeProtectedChange(Model):
 class CreateSubproblem(Model):
     action_type: Literal[ManagerActionType.CREATE_SUBPROBLEM]
     question: Text
+    priority: Confidence = 0.5
 
 
 class UpdateSubproblem(Model):
     action_type: Literal[ManagerActionType.UPDATE_SUBPROBLEM]
     subproblem_id: EntityId
     question: Text
+    priority: Confidence | None = None
 
 
 class DispatchResearchAgents(Model):
