@@ -123,6 +123,7 @@ class Observation(Entity):
 class Claim(Entity):
     project_id: EntityId
     statement: Text
+    scope: Text
     evidence: ClaimEvidence
     status: EntityStatus = EntityStatus.ACTIVE
 

@@ -9,6 +9,7 @@
       "contradicting_observation_ids": [
         "00000000-0000-4000-8000-000000000007"
       ]
-    }
+    },
+    "scope": "The configured synthetic workload and approved evaluation protocol only."
   }
 }

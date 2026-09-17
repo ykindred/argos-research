@@ -41,7 +41,7 @@ approval decision IDs do not prove human authorization.
 | Experiment | hypothesis through spec; optional research branch; full lifecycle status |
 | Run | experiment ID; execution attempt, terminal result and evaluation |
 | Observation | run ID and evaluator output; RM summary, relation, confidence |
-| Claim | project ID, statement, supporting/contradicting observation references |
+| Claim | project ID, statement, explicit scope, supporting/contradicting observation references |
 | Evidence | claim → observation → run, with relation |
 | Decision | project, cycle, decision type, RM/human actor, rationale and affected entity references |
 | Baseline | project, source commit, run/evaluation, approval decision, previous baseline ID |
@@ -151,6 +151,28 @@ build/test/run/evaluate; a failure needs an explicit decision before invoking EA
 again. Backend implementations and their common role interfaces/prompts belong to
 the component issues, not this schema-only change.
 
+CriticTask is the typed blind-review input: task ID, main question, claim ID,
+statement, explicit scope and selected ReviewEvidence records. Each record contains
+an observation ID, ExperimentSpec, execution provenance (including diff/log paths)
+and raw EvaluatorResult. Local validation checks matching experiment/run IDs,
+protocol name and baseline ID, successful execution, and unique observation IDs.
+Negative measurements and well-formed invalid evaluations remain reviewable so the
+Critic can challenge insufficient evidence. Failed execution is recorded as failure,
+not as scientific evidence. No RM summary or private reasoning field is required.
+
+The caller must select a finite evidence/context budget, authenticate authoritative
+records and resolve diff/artifact references before invoking Critic. Matching names
+and IDs alone do not prove evaluator integrity. The store must verify the claim's
+scope and statement, observation membership, and that selected evidence includes
+relevant counterevidence rather than cherry-picked support. Free text and artifact
+contents still require context isolation; a schema cannot prove blindness.
+CriticTask.task_id refers to the durable review Task; the caller must correlate the
+returned CriticReview to that invocation and claim.
+
+Claim and form_claim/revise_claim now require explicit nonblank scope. Existing
+serialized draft payloads must be supplied with their intended scope by the caller;
+the model does not infer scientific applicability from the statement.
+
 CriticReview carries accept/reject/needs_more_evidence, mandatory concise rationale,
 weaknesses, risks and requested checks. Critic must receive only the relevant claim,
 experiment, diff, raw evidence and protocol, without RM private reasoning. It seeks
@@ -170,7 +192,7 @@ lowercase wire names are preserved:
 | create_hypothesis / select_hypothesis | statement/rationale/branch or hypothesis ID |
 | propose_experiment | ExperimentSpec (DESIGN_EXPERIMENT) |
 | implement_experiment / run_experiment | experiment ID |
-| form_claim / revise_claim | statement, evidence; existing ID for revision |
+| form_claim / revise_claim | statement, scope, evidence; existing ID for revision |
 | request_critic_review | claim ID (REVIEW) |
 | synthesize | completed RA task IDs; RM performs synthesis |
 | continue_research | next question |
@@ -212,7 +234,7 @@ requirement is implied by this revision.
 cover the provenance chain, Task/Evidence/Baseline and baseline human Decision,
 all ManagerAction variants, three independent RA branches, CodingTask/Result,
 ExperimentSpec, successful and failed execution, evaluator measurements and all
-three Critic verdicts. They are illustrative payloads, not real experiment evidence.
+three Critic verdicts plus a blind CriticTask request. They are illustrative payloads, not real experiment evidence.
 The negative example measures 12 ms against a 10 ms threshold: execution succeeds,
 the constraint fails, and RM records contradiction.
 
@@ -224,17 +246,28 @@ Human review of the shared interfaces remains pending for the PR.
 
 ### Validation performed for this revision
 
-Self-review checked the diff against issue #2 and the updated role boundaries,
-failure semantics, context-isolation contract, provenance and persistence needs.
-It corrected the baseline example to use a separate unchanged-code run and tightened
-coding timeout/status consistency. Validation on Python 3.12.3 with uv:
+Self-review checked this revision against issue #2 and the supplied updated
+architecture, task1.md and project-policy requirements (those three source files
+are supplied in the task, not present in this checkout). Existing Task, Evidence,
+Baseline, lifecycle, resource and human-proposal contracts were preserved. This
+follow-up adds explicit claim scope and typed blind-review inputs, with identity
+and provenance validation and negative/invalid evidence tests.
 
-- `uv run pytest -q`: **225 passed** (1.02 s).
+Validation with uv on Python 3.12.3:
+
+- `uv run pytest -q`: **239 passed** (1.15 s).
 - `uv run ruff check src tests`: passed.
 - `uv run ruff format --check src tests`: passed (5 files).
 - `git diff --check`: passed.
 
-The tests validate contracts, not human authorization, actual clean worktrees,
-physical RA isolation, SQLite persistence, scheduling or process termination.
-Human interface review remains pending. No real backend, real research repository,
-synthetic runtime E2E or eight-hour runtime test was run in this protocol issue.
+Commands used `UV_CACHE_DIR=/tmp/argos-uv-cache` to keep cache writes within the
+permitted filesystem. The tests validate contracts, not human authorization,
+actual clean worktrees, physical RA isolation, SQLite persistence, scheduling or
+process termination. Human interface review remains pending. No real backend,
+real research repository, synthetic runtime E2E or eight-hour runtime test was run
+in this protocol issue.
+
+Handoff: ARGOS repository, branch `codex/issue-2-20260917162832`, issue #2 shared
+protocol revision. Evidence is in `tests/test_models.py`, `examples/entities.json`,
+`examples/protocols/` and this validation record. No FGIM code or experiment results
+were used as ARGOS validation evidence.

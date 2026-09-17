@@ -292,6 +292,7 @@ class ClaimEvidence(Model):
 class FormClaim(Model):
     action_type: Literal[ManagerActionType.FORM_CLAIM]
     statement: Text
+    scope: Text
     evidence: ClaimEvidence
 
 
@@ -299,6 +300,7 @@ class ReviseClaim(Model):
     action_type: Literal[ManagerActionType.REVISE_CLAIM]
     claim_id: EntityId
     statement: Text
+    scope: Text
     evidence: ClaimEvidence
 
 
@@ -383,4 +385,49 @@ class CodingResult(Model):
             raise ValueError("Failed or timed-out coding must record failure")
         if self.failure and ((self.status == "timeout") != (self.failure.kind == "timeout")):
             raise ValueError("Coding timeout status and failure kind must match")
+        return self
+
+
+class ReviewEvidence(Model):
+    """Selected raw evidence, without the RM's interpretation or reasoning history."""
+
+    observation_id: EntityId
+    specification: ExperimentSpec
+    execution: ExperimentResult
+    evaluation: EvaluatorResult
+
+    @model_validator(mode="after")
+    def matching_records(self) -> Self:
+        if not (
+            self.specification.experiment_id
+            == self.execution.experiment_id
+            == self.evaluation.experiment_id
+        ):
+            raise ValueError("Review evidence must describe the same experiment")
+        if self.execution.run_id != self.evaluation.run_id:
+            raise ValueError("Review evaluation must describe the supplied run")
+        if self.execution.status != RunStatus.SUCCEEDED:
+            raise ValueError("Execution failure cannot supply scientific evidence")
+        if self.evaluation.protocol_name != self.specification.evaluation_protocol.name:
+            raise ValueError("Review evaluation must match the specified protocol")
+        if self.evaluation.baseline_id != self.specification.baseline_id:
+            raise ValueError("Review evaluation must match the specified baseline")
+        return self
+
+
+class CriticTask(Model):
+    """Blind review request assembled from authoritative, selected evidence."""
+
+    task_id: EntityId
+    main_research_question: Text
+    claim_id: EntityId
+    statement: Text
+    scope: Text
+    evidence: list[ReviewEvidence] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def distinct_observations(self) -> Self:
+        ids = [item.observation_id for item in self.evidence]
+        if len(set(ids)) != len(ids):
+            raise ValueError("Review observation IDs must be distinct")
         return self

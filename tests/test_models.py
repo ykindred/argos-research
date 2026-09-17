@@ -29,6 +29,7 @@ ENTITIES = {
     "baseline_experiment": models.Experiment,
 }
 PROTOCOLS = {
+    "critic_task": protocols.CriticTask,
     "coding_task": protocols.CodingTask,
     "coding_result": protocols.CodingResult,
     "project_config": protocols.ProjectConfig,
@@ -508,3 +509,69 @@ def test_invalid_metric_direction():
     data["measurements"][0]["direction"] = "improve"
     with pytest.raises(ValidationError):
         protocols.EvaluatorResult.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ["experiment", "run", "protocol", "baseline", "failed", "duplicate", "empty"],
+)
+def test_critic_task_rejects_inconsistent_evidence(fault):
+    data = payload("critic_task")
+    evidence = data["evidence"][0]
+    if fault == "experiment":
+        evidence["specification"]["experiment_id"] = str(UUID(int=999))
+    elif fault == "run":
+        evidence["evaluation"]["run_id"] = str(UUID(int=999))
+    elif fault == "protocol":
+        evidence["evaluation"]["protocol_name"] = "unapproved-protocol"
+    elif fault == "baseline":
+        evidence["evaluation"]["baseline_id"] = str(UUID(int=999))
+    elif fault == "failed":
+        evidence["execution"].update(
+            status="failed", failure={"kind": "runtime_crash", "message": "Crashed"}
+        )
+    elif fault == "duplicate":
+        data["evidence"] *= 2
+    else:
+        data["evidence"] = []
+    with pytest.raises(ValidationError):
+        protocols.CriticTask.model_validate(data)
+
+
+def test_blind_critic_request_preserves_raw_negative_and_invalid_evidence():
+    data = payload("critic_task")
+    task = protocols.CriticTask.model_validate(data)
+    evidence = task.evidence[0]
+    assert evidence.execution.status == "succeeded"
+    assert evidence.evaluation.constraint_checks[0].passed is False
+    assert evidence.execution.diff_path
+    assert evidence.execution.stdout_path
+    assert_roundtrip(task)
+    # Invalid evidence must remain available for the Critic to challenge the claim.
+    data["evidence"][0]["evaluation"].update(status="invalid", measurements=[])
+    assert_roundtrip(protocols.CriticTask.model_validate(data))
+    for key in ("rm_private_reasoning", "conversation_history", "observation_summary"):
+        with pytest.raises(ValidationError):
+            protocols.CriticTask.model_validate(dict(data, **{key: "Unnecessary context"}))
+
+
+@pytest.mark.parametrize("scope", [None, "", "   "])
+def test_claim_scope_must_be_explicit_and_nonblank(scope):
+    with pytest.raises(ValidationError):
+        models.Claim.model_validate(dict(entity("claim"), scope=scope))
+    for name in ("manager_action_form_claim", "manager_action_revise_claim"):
+        data = payload(name)
+        data["action"]["scope"] = scope
+        with pytest.raises(ValidationError):
+            protocols.ManagerAction.model_validate(data)
+
+
+def test_critic_example_uses_authoritative_claim_and_evidence():
+    task = protocols.CriticTask.model_validate(payload("critic_task"))
+    claim = models.Claim.model_validate(entity("claim"))
+    observation = models.Observation.model_validate(entity("observation"))
+    run = models.Run.model_validate(entity("run"))
+    assert (task.claim_id, task.statement, task.scope) == (claim.id, claim.statement, claim.scope)
+    assert task.evidence[0].observation_id == observation.id
+    assert task.evidence[0].evaluation == observation.evaluation == run.evaluation
+    assert task.evidence[0].execution == run.result
