@@ -1,0 +1,30 @@
+{
+  "experiment_id": "00000000-0000-4000-8000-000000000005",
+  "run_id": "00000000-0000-4000-8000-000000000016",
+  "status": "failed",
+  "started_at": "2026-09-18T08:00:00Z",
+  "finished_at": "2026-09-18T08:01:00Z",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resulting_commit": null,
+  "configuration": {
+    "seed": 42,
+    "cache": true
+  },
+  "commands": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "build"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Build failed: missing source file"
+    }
+  ],
+  "artifacts": [],
+  "failure": {
+    "kind": "build_failure",
+    "message": "Build failed before measurements were produced."
+  }
+}

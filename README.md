@@ -34,6 +34,7 @@ The v0.1 goal is to build a minimal end-to-end research loop with persistent res
 
 - [v0.1 Architecture](docs/architecture-v0.1.md)
 - [Development Principles](docs/development-principles.md)
+- [Shared Models and Protocols](docs/shared-models-v0.1.md)
 
 ## Development
 
@@ -42,4 +43,6 @@ Requires Python 3.11+.
 ```bash
 uv sync --extra dev
 uv run pytest
-
+uv run ruff check src tests
+uv run ruff format --check src tests
+```

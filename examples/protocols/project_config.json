@@ -1,0 +1,42 @@
+{
+  "research_context": "Study runtime on a fixed benchmark.",
+  "main_research_question": "Can runtime be reduced without changing outputs?",
+  "source_repository": "/research/example",
+  "build_command": [
+    "python",
+    "-m",
+    "build"
+  ],
+  "test_command": [
+    "python",
+    "-m",
+    "pytest"
+  ],
+  "evaluation_protocol": {
+    "name": "fixed-benchmark-v1",
+    "command": [
+      "python",
+      "evaluate.py"
+    ],
+    "metric_names": [
+      "latency_ms"
+    ],
+    "constraints": [
+      "latency_ms <= 10"
+    ]
+  },
+  "scope": {
+    "editable_paths": [
+      "src/**",
+      "tests/**"
+    ],
+    "protected_paths": [
+      "data/**"
+    ]
+  },
+  "resource_limits": {
+    "timeout_seconds": 120,
+    "max_memory_mb": 1024,
+    "max_cpu_cores": 1
+  }
+}

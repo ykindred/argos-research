@@ -1,0 +1,56 @@
+{
+  "experiment_id": "00000000-0000-4000-8000-000000000005",
+  "hypothesis_id": "00000000-0000-4000-8000-000000000004",
+  "hypothesis_statement": "Caching reduces latency below 10 ms.",
+  "goal": "Measure the latency effect of caching.",
+  "requested_change": "Add bounded caching to repeated computations.",
+  "build_steps": [
+    [
+      "python",
+      "-m",
+      "build"
+    ]
+  ],
+  "test_steps": [
+    [
+      "python",
+      "-m",
+      "pytest"
+    ]
+  ],
+  "run_steps": [
+    [
+      "python",
+      "benchmark.py",
+      "--seed",
+      "42"
+    ]
+  ],
+  "evaluation_protocol": {
+    "name": "fixed-benchmark-v1",
+    "command": [
+      "python",
+      "evaluate.py"
+    ],
+    "metric_names": [
+      "latency_ms"
+    ],
+    "constraints": [
+      "latency_ms <= 10"
+    ]
+  },
+  "resource_limits": {
+    "timeout_seconds": 120,
+    "max_memory_mb": 1024,
+    "max_cpu_cores": 1
+  },
+  "scope": {
+    "editable_paths": [
+      "src/**",
+      "tests/**"
+    ],
+    "protected_paths": [
+      "data/**"
+    ]
+  }
+}

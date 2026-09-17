@@ -1,0 +1,11 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Investigate the measured latency effect.",
+  "action": {
+    "action_type": "create_hypothesis",
+    "subproblem_id": "00000000-0000-4000-8000-000000000002",
+    "statement": "Caching reduces latency below 10 ms.",
+    "rationale": "Repeated work may be reusable.",
+    "branch_id": "00000000-0000-4000-8000-000000000003"
+  }
+}

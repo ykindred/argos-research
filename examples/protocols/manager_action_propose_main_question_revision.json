@@ -1,0 +1,9 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Investigate the measured latency effect.",
+  "action": {
+    "action_type": "propose_main_question_revision",
+    "proposed_question": "Can runtime be reduced on larger inputs?",
+    "requires_human_approval": true
+  }
+}

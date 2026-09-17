@@ -1,0 +1,8 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Investigate the measured latency effect.",
+  "action": {
+    "action_type": "select_hypothesis",
+    "hypothesis_id": "00000000-0000-4000-8000-000000000004"
+  }
+}
