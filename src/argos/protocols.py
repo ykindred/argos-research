@@ -15,7 +15,9 @@ from argos.common import (
     EntityReference,
     EvaluationProtocol,
     ExecutionFailure,
+    FiniteNumber,
     Measurement,
+    MetricDirection,
     Model,
     PathScope,
     ResourceClass,
@@ -132,6 +134,28 @@ class ExperimentResult(Model):
         return self
 
 
+class MetricComparison(Model):
+    name: Text
+    baseline_value: FiniteNumber
+    value: FiniteNumber
+    delta: FiniteNumber
+    percent_change: FiniteNumber | None = None
+    unit: Text | None = None
+    direction: MetricDirection
+
+
+class EvaluationProvenance(Model):
+    protocol: EvaluationProtocol
+    parser: Text
+    input_path: Text
+    stdout_path: Text
+    stderr_path: Text
+    worktree: Text
+    source_commit: Text
+    resulting_commit: Text
+    command: CommandRecord | None = None
+
+
 class EvaluatorResult(Model):
     experiment_id: EntityId
     run_id: EntityId
@@ -142,9 +166,16 @@ class EvaluatorResult(Model):
     measurements: list[Measurement]
     constraint_checks: list[ConstraintCheck]
     artifacts: list[Text]
+    comparisons: list[MetricComparison] = Field(default_factory=list)
+    provenance: EvaluationProvenance | None = None
+    failure: ExecutionFailure | None = None
 
     @model_validator(mode="after")
     def unique_names(self) -> Self:
+        if self.status == "ok" and self.failure is not None:
+            raise ValueError("Valid evaluation cannot include an execution failure")
+        if self.comparisons and (self.baseline_id is None or self.status != "ok"):
+            raise ValueError("Comparisons require a valid evaluation and pinned baseline")
         if self.status == "ok" and not self.measurements:
             raise ValueError("Valid evaluation requires measurements")
         for items in (self.measurements, self.constraint_checks):
