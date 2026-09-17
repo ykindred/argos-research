@@ -8,6 +8,8 @@ from pydantic import Field, JsonValue, model_validator
 from argos.common import (
     CommandRecord,
     ConstraintCheck,
+    ContextPolicy,
+    CycleLimits,
     EntityId,
     EntityReference,
     EvaluationProtocol,
@@ -15,7 +17,9 @@ from argos.common import (
     Measurement,
     Model,
     PathScope,
+    ResourceClass,
     ResourceLimits,
+    ResourceSlots,
     RunStatus,
     Text,
     Timestamp,
@@ -23,6 +27,11 @@ from argos.common import (
 
 
 class ProjectConfig(Model):
+    research_charter: Text
+    research_direction: Text
+    held_out_test_protocol: Text
+    resources: ResourceSlots = Field(default_factory=ResourceSlots)
+    limits: CycleLimits = Field(default_factory=CycleLimits)
     research_context: Text
     main_research_question: Text
     source_repository: Text
@@ -37,6 +46,8 @@ class ResearchTask(Model):
     id: EntityId
     project_id: EntityId
     subproblem_id: EntityId
+    branch_id: EntityId
+    context_policy: ContextPolicy = ContextPolicy.INDEPENDENT
     question: Text
     main_research_question: Text
     context: Text
@@ -67,6 +78,11 @@ class ExperimentSpec(Model):
     hypothesis_id: EntityId
     hypothesis_statement: Text
     goal: Text
+    prediction: Text
+    success_criteria: list[Text] = Field(min_length=1)
+    failure_criteria: list[Text] = Field(min_length=1)
+    resource_class: ResourceClass = ResourceClass.CPU
+    baseline_id: EntityId | None = None
     requested_change: Text
     build_steps: list[list[Text]]
     test_steps: list[list[Text]]
@@ -88,6 +104,10 @@ class ExperimentResult(Model):
     status: Literal[RunStatus.SUCCEEDED, RunStatus.FAILED]
     started_at: Timestamp
     finished_at: Timestamp
+    worktree: Text
+    diff_path: Text
+    stdout_path: Text
+    stderr_path: Text
     source_commit: Text
     resulting_commit: Text | None
     configuration: dict[str, JsonValue]
@@ -113,13 +133,17 @@ class EvaluatorResult(Model):
     experiment_id: EntityId
     run_id: EntityId
     evaluated_at: Timestamp
+    status: Literal["ok", "invalid"] = "ok"
+    baseline_id: EntityId | None = None
     protocol_name: Text
-    measurements: list[Measurement] = Field(min_length=1)
+    measurements: list[Measurement]
     constraint_checks: list[ConstraintCheck]
     artifacts: list[Text]
 
     @model_validator(mode="after")
     def unique_names(self) -> Self:
+        if self.status == "ok" and not self.measurements:
+            raise ValueError("Valid evaluation requires measurements")
         for items in (self.measurements, self.constraint_checks):
             if len({item.name for item in items}) != len(items):
                 raise ValueError("Measurement and constraint names must be unique within each list")
@@ -143,6 +167,12 @@ class CriticReview(Model):
 
 
 class ManagerActionType(StrEnum):
+    CLOSE_SUBPROBLEM = "close_subproblem"
+    IMPLEMENT_EXPERIMENT = "implement_experiment"
+    RUN_EXPERIMENT = "run_experiment"
+    SYNTHESIZE = "synthesize"
+    STOP = "stop"
+    PROPOSE_PROTECTED_CHANGE = "propose_protected_change"
     CREATE_SUBPROBLEM = "create_subproblem"
     UPDATE_SUBPROBLEM = "update_subproblem"
     DISPATCH_RESEARCH_AGENTS = "dispatch_research_agents"
@@ -155,6 +185,46 @@ class ManagerActionType(StrEnum):
     CONTINUE_RESEARCH = "continue_research"
     PAUSE_FOR_HUMAN = "pause_for_human"
     PROPOSE_MAIN_QUESTION_REVISION = "propose_main_question_revision"
+
+
+class CloseSubproblem(Model):
+    action_type: Literal[ManagerActionType.CLOSE_SUBPROBLEM]
+    subproblem_id: EntityId
+
+
+class ImplementExperiment(Model):
+    action_type: Literal[ManagerActionType.IMPLEMENT_EXPERIMENT]
+    experiment_id: EntityId
+
+
+class RunExperiment(Model):
+    action_type: Literal[ManagerActionType.RUN_EXPERIMENT]
+    experiment_id: EntityId
+
+
+class Synthesize(Model):
+    action_type: Literal[ManagerActionType.SYNTHESIZE]
+    task_ids: list[EntityId] = Field(min_length=1)
+
+
+class Stop(Model):
+    action_type: Literal[ManagerActionType.STOP]
+    reason: Text
+
+
+class ProtectedTarget(StrEnum):
+    RESEARCH_DIRECTION = "research_direction"
+    MAIN_QUESTION = "main_research_question"
+    EVALUATOR = "evaluator"
+    BASELINE = "baseline"
+    HELD_OUT_TEST_PROTOCOL = "held_out_test_protocol"
+
+
+class ProposeProtectedChange(Model):
+    action_type: Literal[ManagerActionType.PROPOSE_PROTECTED_CHANGE]
+    target: ProtectedTarget
+    proposed_change: Text
+    requires_human_approval: Literal[True] = True
 
 
 class CreateSubproblem(Model):
@@ -171,6 +241,15 @@ class UpdateSubproblem(Model):
 class DispatchResearchAgents(Model):
     action_type: Literal[ManagerActionType.DISPATCH_RESEARCH_AGENTS]
     tasks: list[ResearchTask] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def distinct_tasks(self) -> Self:
+        if len({task.id for task in self.tasks}) != len(self.tasks):
+            raise ValueError("Dispatch task IDs must be distinct")
+        independent = [t.branch_id for t in self.tasks if t.context_policy == "independent"]
+        if len(set(independent)) != len(independent):
+            raise ValueError("Independent tasks must use distinct research branches")
+        return self
 
 
 class CreateHypothesis(Model):
@@ -236,6 +315,7 @@ class ContinueResearch(Model):
 class PauseForHuman(Model):
     action_type: Literal[ManagerActionType.PAUSE_FOR_HUMAN]
     question_for_human: Text
+    options: list[Text] = Field(default_factory=list)
 
 
 class ProposeMainQuestionRevision(Model):
@@ -245,7 +325,13 @@ class ProposeMainQuestionRevision(Model):
 
 
 ActionPayload = Annotated[
-    CreateSubproblem
+    CloseSubproblem
+    | ImplementExperiment
+    | RunExperiment
+    | Synthesize
+    | Stop
+    | ProposeProtectedChange
+    | CreateSubproblem
     | UpdateSubproblem
     | DispatchResearchAgents
     | CreateHypothesis
@@ -265,3 +351,36 @@ class ManagerAction(Model):
     project_id: EntityId
     rationale: Text
     action: ActionPayload
+
+    @model_validator(mode="after")
+    def matching_dispatch_project(self) -> Self:
+        if isinstance(self.action, DispatchResearchAgents):
+            if any(t.project_id != self.project_id for t in self.action.tasks):
+                raise ValueError("Dispatched tasks must belong to the action project")
+        return self
+
+
+class CodingTask(Model):
+    """Implementation-only request; later execution belongs to deterministic code."""
+
+    task_id: EntityId
+    experiment_id: EntityId
+    requested_change: Text
+    scope: PathScope
+
+
+class CodingResult(Model):
+    task_id: EntityId
+    experiment_id: EntityId
+    status: Literal["implemented", "failed", "timeout"]
+    diff_path: Text
+    log_paths: list[Text] = Field(min_length=1)
+    failure: ExecutionFailure | None = None
+
+    @model_validator(mode="after")
+    def consistent_failure(self) -> Self:
+        if (self.status != "implemented") != (self.failure is not None):
+            raise ValueError("Failed or timed-out coding must record failure")
+        if self.failure and ((self.status == "timeout") != (self.failure.kind == "timeout")):
+            raise ValueError("Coding timeout status and failure kind must match")
+        return self

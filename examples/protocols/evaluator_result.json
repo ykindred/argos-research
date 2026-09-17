@@ -7,7 +7,8 @@
     {
       "name": "latency_ms",
       "value": 12.0,
-      "unit": "ms"
+      "unit": "ms",
+      "direction": "minimize"
     }
   ],
   "constraint_checks": [
@@ -20,5 +21,6 @@
   ],
   "artifacts": [
     "runs/6/raw.json"
-  ]
+  ],
+  "status": "ok"
 }

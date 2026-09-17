@@ -1,0 +1,8 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Explicit bounded next step.",
+  "action": {
+    "action_type": "implement_experiment",
+    "experiment_id": "00000000-0000-4000-8000-000000000005"
+  }
+}

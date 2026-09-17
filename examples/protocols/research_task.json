@@ -6,5 +6,7 @@
   "main_research_question": "Can runtime be reduced without changing outputs?",
   "context": "Baseline latency is 10 ms on the fixed benchmark.",
   "perspective": "Falsification",
-  "evidence": []
+  "evidence": [],
+  "branch_id": "00000000-0000-4000-8000-000000000003",
+  "context_policy": "independent"
 }

@@ -1,160 +1,240 @@
 # v0.1 shared models
 
-The public interfaces are `argos.models` (persistent entities),
-`argos.protocols` (component messages), and `argos.common` (shared values and
-status enums). They use Pydantic v2 and Python 3.11+. No component runtime,
-persistence, prompts, or execution engine is included.
+The public interfaces are `argos.models` (persistent entities), `argos.protocols`
+(component messages), and `argos.common` (shared values/enums). Python 3.11+ and
+Pydantic v2 are required. This issue defines contracts only: no SQLite store,
+agent prompts/backends, project loader, execution engine, scheduler, or loop.
+The latest user-provided full architecture, task1.md, and project policy take
+precedence over older architecture/issue text. ARGOS and the `argos` package keep
+their names; the old two-developer implementation restriction does not apply.
 
 ## Validation boundary
-
-An Orchestrator must validate untrusted agent JSON before applying it to state:
 
 ```python
 from argos.protocols import ManagerAction
 
 action = ManagerAction.model_validate_json(raw_agent_json)
-serialized = action.model_dump_json()
-restored = ManagerAction.model_validate_json(serialized)
-assert restored == action
+assert ManagerAction.model_validate_json(action.model_dump_json()) == action
 ```
 
-All models reject unknown fields, missing required fields, invalid enum values,
-blank descriptive strings, malformed UUIDs, and timezone-naive timestamps.
-Timestamps are ISO 8601 with an explicit offset; UUIDs are stable identifiers
-allocated by the caller, never regenerated during deserialization. There are no
-implicit timestamp defaults. JSON schemas are available via `model_json_schema()`.
+All models reject unexpected fields and missing required fields. Enums, UUID
+identifiers, nonblank descriptive strings, finite measurements, positive integer
+resource limits, and timezone-aware timestamps are validated. Caller-assigned
+IDs and timestamps survive JSON round trips. `model_json_schema()` exposes the
+contract. Models remain domain-neutral.
 
-Treat validated messages as snapshots. Revalidate serialized data at the state
-boundary after any modification; Pydantic validation is not an authorization
-mechanism and in-place list edits are not assignment-validated. Do not use
-`model_construct()` or unchecked `model_copy(update=...)` for agent input.
+These are validated snapshots, not authorization objects. Revalidate serialized
+messages at the state boundary after modification: in-place list mutations,
+`model_construct()` and `model_copy(update=...)` bypass validation. Never use
+those bypasses to accept agent input. Agent labels such as `actor="human"` and
+approval decision IDs do not prove human authorization.
 
-## Entity relationships
+## Persistent entities and provenance
 
-| Entity | Required provenance / purpose |
+| Entity | Relationship and purpose |
 | --- | --- |
-| Project | `id`, name, human-defined question and context in `config` |
-| Subproblem | `project_id`; a question managed by RM |
-| ResearchBranch | `subproblem_id`; named grouping of related work |
-| Hypothesis | `subproblem_id`, optional `branch_id`; testable statement |
-| Experiment | `spec.hypothesis_id`; `spec.experiment_id` must equal its own `id`; optional `branch_id` |
-| Run | `experiment_id`; execution attempt and optional evaluator measurements |
-| Observation | `run_id`, objective `evaluation`; nested run reference must match |
-| Claim | `project_id`, statement, supporting and contradicting observation IDs |
-| Decision | `project_id`, RM or human actor, rationale, typed entity references, optional requested action |
+| Project | canonical ProjectConfig; optional current baseline ID |
+| Subproblem | project ID, optional parent subproblem, priority, update timestamp |
+| ResearchBranch | subproblem ID; objective in description; independent/shared/blind context policy |
+| Hypothesis | subproblem and optional branch; statement, rationale, confidence, update timestamp |
+| Task | project, kind, resource class, input/output entity references, durable status, timing, failure, repair count |
+| Experiment | hypothesis through spec; optional research branch; full lifecycle status |
+| Run | experiment ID; execution attempt, terminal result and evaluation |
+| Observation | run ID and evaluator output; RM summary, relation, confidence |
+| Claim | project ID, statement, supporting/contradicting observation references |
+| Evidence | claim → observation → run, with relation |
+| Decision | project, cycle, decision type, RM/human actor, rationale and affected entity references |
+| Baseline | project, source commit, run/evaluation, approval decision, previous baseline ID |
 
-The provenance chain is Project → Subproblem → Hypothesis → Experiment → Run
-→ Observation → Claim. A hypothesis or experiment joins a branch via its
-`branch_id`; the branch must belong to the hypothesis's subproblem. Reverse
-relationships are derived from references instead of duplicated lists.
+The primary chain remains Project → Subproblem → Hypothesis → Experiment → Run
+→ Observation → Claim. Research branches are scientific routes, not Git branches.
+Task records persist dispatch/failure independently of a particular agent session;
+ResearchTask is the bounded RA request, linked by its ID to a Task of kind
+`explore`. Evidence records make the claim-to-run link explicit. Claim evidence
+lists are retained as a convenient projection; the store must keep them consistent
+with Evidence records. Claims require at least one observation; contradicted-only
+claims are valid. Unmeasured ideas remain hypotheses.
 
-Claims require at least one supporting or contradicting observation, with no
-duplicates or overlap. A purely contradicted claim is valid. An idea without
-observations remains a hypothesis, not an evidence-backed claim. Decisions
-preserve significant choices and may reference any entity through
-`EntityReference(entity_type, entity_id)`.
+The store must check reference existence, same-project/subproblem membership,
+branch membership, unique IDs, parent cycles, authoritative nested contents,
+legal transitions and matching Task/result identities. An Evidence run must equal
+its Observation run. Invalid observations cannot support or contradict claims.
+These cross-record guarantees are not implemented by local model validation.
 
-Local validators check nested IDs, execution outcomes, and evidence consistency.
-The future state layer must check referenced records exist, belong to the same
-project/subproblem, and have matching authoritative content. It must also enforce
-unique IDs, legal status transitions, run/evaluation/observation consistency, and
-human authorization. These cross-record operations are deliberately not a
-persistence implementation in this issue.
+Baseline records are append-only historical snapshots. Initial creation requires
+an explicit human initialization request; refresh requires explicit human approval,
+a new baseline ID and a link to the prior record. Project.baseline_id selects the
+current snapshot; ExperimentSpec/EvaluatorResult.baseline_id pin comparisons.
+The runtime must resolve omitted spec baseline IDs to the current baseline before
+execution and preserve that resolved ID. Clean-checkout verification, human
+approval, and immutability must be enforced by the loader/executor/store. A model
+alone neither proves a checkout clean nor authorizes replacing a baseline.
 
-## Status semantics
+## Status and failure semantics
 
-- `EntityStatus`: active, completed, paused, rejected, archived. Claims start
-  active as candidates; Critic verdicts are separate records and do not mutate
-  their status automatically.
-- `ExperimentStatus`: proposed, selected, running, completed, cancelled.
-  Completed means the experiment's work is finished, not that a hypothesis held.
-- `RunStatus`: pending, running, succeeded, failed. Each execution attempt has
-  its own ID. Only terminal runs contain an `ExperimentResult`.
-- `CriticVerdict`: accept, reject, needs_more_evidence.
+- SubproblemStatus: open, active, blocked, resolved, rejected.
+- HypothesisStatus: proposed, testing, supported, contradicted, inconclusive, rejected.
+- ContextPolicy: independent, shared, blind.
+- ExperimentStatus: planned → implementing → implemented → testing → running →
+  evaluating → completed; failure states implementation_failed, test_failed,
+  run_failed, invalid_result, timeout. Legacy proposed/selected and cancelled are
+  retained for draft interface compatibility; new experiments default to planned.
+- RunStatus: pending, running, succeeded, failed. This summarizes an attempt;
+  ExperimentStatus provides phase detail, ExecutionFailure provides failure kind.
+- TaskStatus: pending, running, completed, failed, timeout, cancelled. Terminal
+  tasks require finish timestamps; failed/timeout tasks require failure details.
+  Only completed tasks may publish validated output references.
+- EntityStatus remains the generic project/branch/claim vocabulary. A Critic
+  verdict does not automatically change a claim's status.
 
-A terminal Run retains source/resulting commits, configuration, commands,
-stdout/stderr, artifact references, and failure details in `result`. Successful
-runs may attach authoritative metrics in `evaluation` once evaluation finishes.
-Pending/running runs do not yet have a terminal result. A failed result may lack
-a resulting commit or commands (for example, command validation failed before
-execution). Successful results require a resulting commit and zero-exit command
-records. A successful no-change run may use the source commit as its resulting
-commit. These strings identify commits but are not verified against a repository.
+ExperimentResult describes execution, not scientific value. Failed execution
+requires structured failure details; successful execution requires a resulting
+commit and recorded zero-exit commands. Successful no-change runs may use the
+source commit as the resulting commit. Pre-execution failures may have no commands
+or resulting commit. Worktree, diff, log paths, configuration, commands, artifacts,
+and timestamps preserve provenance. Artifact paths are references, not proof that
+files exist. Executors must retain even empty diff/log files where appropriate.
 
-## Component messages
+A build failure maps to experiment implementation_failed; test failures to
+test_failed; runtime crashes/invalid commands to run_failed; malformed evaluator
+output to invalid_result; timeout to timeout. Failures never automatically falsify
+a hypothesis. A valid measurement worse than baseline remains a successful
+execution and can subsequently be interpreted by RM as contradictory evidence.
 
-`ProjectConfig` supplies research context, canonical question, source repository,
-build/test commands, evaluation protocol, path scope, and resource limits.
-`ResearchTask` gives an RA a specific question, perspective, bounded context,
-and relevant evidence references. The caller must select context and exclude
-other RAs' initial outputs. `ResearchAgentResult` links to its task and includes
-ideas, hypotheses, rationale, expected effects, validation methods, risks, and
-assumptions. Empty ideas are allowed when exploration produces no proposal.
+EvaluatorResult reports validity (`ok`/`invalid`), objective finite measurements,
+metric direction (minimize/maximize/informational), constraint checks and artifacts.
+Boolean correctness checks need no numerical threshold. A failed constraint does
+not necessarily mean invalid evaluation: the evaluator decides validity under the
+human-approved protocol. An `ok` result requires measurements. An invalid result
+may retain partial measurements but can only produce an invalid Observation;
+it cannot support scientific claims. Malformed JSON produces an execution failure,
+not fabricated measurements. Failed Runs cannot attach evaluation; a well-formed
+invalid evaluation can be retained on a successfully executed Run and invalid
+Observation while the Experiment becomes invalid_result.
 
-`ManagerAction.action` is a discriminated union keyed by `action_type`. Each
-variant has a specific payload, not an arbitrary dictionary:
+RM writes Observation summary/relation/confidence; evaluator messages contain no
+hypothesis verdict, novelty or scientific interpretation. Text semantics cannot
+be policed by a schema: consumers must accept measurements only from deterministic
+evaluation and verify them against the approved protocol.
 
-| Action | Payload |
+## Component contracts
+
+ProjectConfig carries Research Charter text, human-owned direction/question,
+held-out protocol, repository, commands, evaluation protocol, editable/protected
+scope, task resource limits, separate LLM/coding/CPU/GPU slot counts, cycle budget
+and stagnation threshold. It is the normalized loader output, not a YAML parser.
+ProjectLoader will read research.md + project.yaml + project evaluator, resolve
+paths and enforce permissions. The full architecture's nested YAML shape can be
+adapted into this existing flat contract without putting project logic in core.
+
+ResearchTask includes branch ID, context policy, bounded context, question,
+perspective and evidence references. Dispatch accepts one or more tasks, including
+at least three independent branches; task IDs and independent branch IDs must be
+unique, and task projects must match the ManagerAction project. The example uses
+three perspectives including falsification. The orchestrator must actually isolate
+initial contexts and join completed results before RM synthesis. A policy enum
+cannot detect another RA's output embedded in free text.
+
+ResearchAgentResult contains ideas, hypotheses, rationale, expected effects,
+validation methods, risks and assumptions. Empty ideas are allowed. ExperimentSpec
+contains prediction, success/failure criteria, requested change, hypothesis, goal,
+build/test/run steps, evaluation protocol, resource class/limits, baseline and scope.
+Empty build/test step lists mean no such step is needed. Run steps are nonempty
+argument arrays. The executor must resolve inherited scope and prevent a spec from
+relaxing protected project policy or replacing the approved evaluator.
+
+CodingTask is implementation-only: task/experiment IDs, requested change and scope.
+CodingResult reports implemented/failed/timeout with diff/log references. It is
+not ExperimentResult and cannot assert successful scientific execution. EA exits
+after implementation or necessary repair. Deterministic code subsequently performs
+build/test/run/evaluate; a failure needs an explicit decision before invoking EA
+again. Backend implementations and their common role interfaces/prompts belong to
+the component issues, not this schema-only change.
+
+CriticReview carries accept/reject/needs_more_evidence, mandatory concise rationale,
+weaknesses, risks and requested checks. Critic must receive only the relevant claim,
+experiment, diff, raw evidence and protocol, without RM private reasoning. It seeks
+counterevidence but may accept sufficiently supported claims. No downstream message
+requires private reasoning.
+
+## Manager actions
+
+ManagerAction.action is a discriminated union keyed by action_type. Existing
+lowercase wire names are preserved:
+
+| Action | Payload / full architecture equivalent |
 | --- | --- |
-| create_subproblem | question |
-| update_subproblem | subproblem ID, replacement question |
-| dispatch_research_agents | one or more bounded ResearchTasks |
-| create_hypothesis | subproblem ID, statement, rationale, optional branch ID |
-| select_hypothesis | hypothesis ID |
-| propose_experiment | ExperimentSpec |
-| form_claim | statement, evidence references |
-| revise_claim | claim ID, replacement statement and evidence references |
-| request_critic_review | claim ID |
+| create_subproblem / update_subproblem | question / existing ID and question |
+| close_subproblem | subproblem ID |
+| dispatch_research_agents | bounded ResearchTasks (EXPLORE) |
+| create_hypothesis / select_hypothesis | statement/rationale/branch or hypothesis ID |
+| propose_experiment | ExperimentSpec (DESIGN_EXPERIMENT) |
+| implement_experiment / run_experiment | experiment ID |
+| form_claim / revise_claim | statement, evidence; existing ID for revision |
+| request_critic_review | claim ID (REVIEW) |
+| synthesize | completed RA task IDs; RM performs synthesis |
 | continue_research | next question |
-| pause_for_human | question for the human |
-| propose_main_question_revision | proposed question; requires_human_approval is always true |
+| pause_for_human | question and optional options (ASK_HUMAN); rationale in envelope |
+| stop | reason |
+| propose_main_question_revision | proposed question, approval always required |
+| propose_protected_change | direction/question/evaluator/baseline/held-out target and proposal; approval always required |
 
-There is **no action that directly changes the canonical main question**.
-A revision action is only a proposal. The future Orchestrator/state layer must
-obtain explicit human approval through a trusted human interface before applying
-it, and record the human decision. An agent-supplied actor label or approval flag
-is not proof of approval. ProjectConfig describes data; constructing a replacement
-config does not authorize its persistence. RM rationale is for recording decisions;
-downstream ExperimentSpec and evaluator messages require no RM private reasoning.
+No action directly edits protected canonical settings. Human approval must come
+from a trusted human interface, be tied to the exact proposed change, and be
+recorded as a Decision before applying it. ProjectConfig replacement or agent
+approval flags cannot bypass this gate. Generic human questions, stagnation gates
+and implementation retries also remain explicit decisions. Merge/interface review
+by humans remains pending; no automatic approval or old two-person staffing
+requirement is implied by this revision.
 
-`ExperimentSpec` includes the hypothesis ID and statement, goal, requested change,
-build/test/run steps, evaluation protocol, limits, and optional path scope. Commands
-are argument arrays, not instructions to an execution engine. Empty build/test
-step lists explicitly mean no such step is needed; run steps must be nonempty.
-Path scope describes repository-relative paths/globs. A future executor must
-resolve and enforce scope and resource limits, including inherited ProjectConfig
-scope when a spec omits it. These schemas neither execute commands nor grant
-filesystem access.
+## Remaining cross-component guarantees
 
-`ExperimentResult` represents execution only. Exactly failed results require
-`ExecutionFailure` (build failure, test failure, runtime crash, timeout, invalid
-command, or invalid evaluator output). A measurement failing a threshold is not
-an execution failure. A failed execution must not become scientific evidence
-falsifying a hypothesis.
+- Validate structured output, repair at most once, then persist Task failure without
+  publishing invalid state. `repair_attempts` is bounded to one; models do not
+  implement retries or rollbacks.
+- Trigger RM from completed research events with a finite briefing, including
+  failed directions; do not poll RM or replay all history. Preserve synchronous
+  cycles with logical independent branches, without an asynchronous Idea Bank.
+- Enforce finite asyncio.Semaphore pools separately for LLM, coding, CPU and GPU.
+  ResourceSlots config alone does not schedule work.
+- Persist transitions before advancing; one task failure must not kill the loop.
+  Implement process-tree termination, pause/resume, restart recovery and stagnation
+  human gates in execution/orchestration issues.
+- Preserve failures, diff, logs and provenance before cleaning failed worktrees.
+  Retain evidence outside deleted worktrees; never delete the only evidence copy.
+- Later issues supply CLI, SQLite, fake backends, synthetic E2E and then one real
+  backend. No E2E, actual isolation, recovery, real-repository run or ≥8h run is
+  claimed by protocol unit tests.
 
-`EvaluatorResult` contains finite numerical measurements, numerical constraint
-checks, protocol identity, and artifact references. It has no interpretation,
-hypothesis verdict, or research-direction field. Names must be unique in each
-measurement/check list. Text labels cannot be semantically policed by a schema;
-only deterministic evaluator output should populate this message. Invalid
-evaluator output is recorded as an execution failure, not fabricated metrics.
+## Examples and validation
 
-`CriticReview` links a claim to a verdict, concise rationale, weaknesses, risks,
-and requested checks. An empty check list is allowed when no further check is
-requested. Review does not itself apply a decision.
+[Entity fixtures](../examples/entities.json) and [protocol examples](../examples/protocols/)
+cover the provenance chain, Task/Evidence/Baseline and baseline human Decision,
+all ManagerAction variants, three independent RA branches, CodingTask/Result,
+ExperimentSpec, successful and failed execution, evaluator measurements and all
+three Critic verdicts. They are illustrative payloads, not real experiment evidence.
+The negative example measures 12 ms against a 10 ms threshold: execution succeeds,
+the constraint fails, and RM records contradiction.
 
-## Executable examples
+Run `uv run pytest`, `uv run ruff check src tests` and
+`uv run ruff format --check src tests`. Tests round-trip examples and nested models,
+reject invalid inputs and exercise provenance, task failure, lifecycle vocabulary,
+human proposal boundaries, resources and execution/scientific-result separation.
+Human review of the shared interfaces remains pending for the PR.
 
-[The entity fixture](../examples/entities.json) includes all nine entities linked
-through one provenance chain. [Protocol examples](../examples/protocols/) include
-ProjectConfig, every ManagerAction variant, ResearchTask, ResearchAgentResult,
-ExperimentSpec, successful and failed ExperimentResult, EvaluatorResult, and all
-three Critic verdicts. They are illustrative payloads, not executed experiments.
+### Validation performed for this revision
 
-The successful example measures 12 ms against a 10 ms limit: execution succeeds,
-the constraint fails, and the claim is contradicted. The failed example records
-a build failure without measurements. Tests load all checked-in examples and
-round-trip every nested model through JSON, alongside invalid-input cases.
+Self-review checked the diff against issue #2 and the updated role boundaries,
+failure semantics, context-isolation contract, provenance and persistence needs.
+It corrected the baseline example to use a separate unchanged-code run and tightened
+coding timeout/status consistency. Validation on Python 3.12.3 with uv:
 
-Both developers' review and approval of these interfaces remain required before
-merge. This implementation does not claim that human review has occurred.
+- `uv run pytest -q`: **225 passed** (1.02 s).
+- `uv run ruff check src tests`: passed.
+- `uv run ruff format --check src tests`: passed (5 files).
+- `git diff --check`: passed.
+
+The tests validate contracts, not human authorization, actual clean worktrees,
+physical RA isolation, SQLite persistence, scheduling or process termination.
+Human interface review remains pending. No real backend, real research repository,
+synthetic runtime E2E or eight-hour runtime test was run in this protocol issue.

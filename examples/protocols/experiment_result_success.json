@@ -46,5 +46,9 @@
   "artifacts": [
     "runs/6/raw.json"
   ],
-  "failure": null
+  "failure": null,
+  "worktree": "worktrees/experiment-5",
+  "diff_path": "runs/6/change.diff",
+  "stdout_path": "runs/6/stdout.log",
+  "stderr_path": "runs/6/stderr.log"
 }

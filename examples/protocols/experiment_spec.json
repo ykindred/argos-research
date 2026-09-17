@@ -50,7 +50,17 @@
       "tests/**"
     ],
     "protected_paths": [
-      "data/**"
+      "evaluate.py",
+      "data/**",
+      "baseline/**"
     ]
-  }
+  },
+  "prediction": "Latency falls below 10 ms.",
+  "success_criteria": [
+    "Latency below 10 ms with unchanged outputs."
+  ],
+  "failure_criteria": [
+    "Valid measurements at or above 10 ms."
+  ],
+  "resource_class": "cpu"
 }

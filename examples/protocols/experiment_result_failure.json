@@ -26,5 +26,9 @@
   "failure": {
     "kind": "build_failure",
     "message": "Build failed before measurements were produced."
-  }
+  },
+  "worktree": "worktrees/experiment-5",
+  "diff_path": "runs/6/change.diff",
+  "stdout_path": "runs/6/stdout.log",
+  "stderr_path": "runs/6/stderr.log"
 }

@@ -1,0 +1,9 @@
+{
+  "task_id": "00000000-0000-4000-8000-000000000040",
+  "experiment_id": "00000000-0000-4000-8000-000000000005",
+  "status": "implemented",
+  "diff_path": "runs/6/change.diff",
+  "log_paths": [
+    "runs/6/coding.log"
+  ]
+}

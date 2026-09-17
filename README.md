@@ -26,7 +26,10 @@ Human / Main Research Question
 
 ## Status
 
-ARGOS is currently in early development.
+ARGOS is currently in early development. This checkout defines the v0.1 shared
+Pydantic models, protocol examples and validation tests; the runtime is not yet
+implemented. See the shared-model documentation for cross-component guarantees
+and human approval requirements.
 
 The v0.1 goal is to build a minimal end-to-end research loop with persistent research state, structured agent communication, reproducible experiment execution, objective evaluation, and independent critique.
 

@@ -26,7 +26,63 @@ class EntityStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class ContextPolicy(StrEnum):
+    INDEPENDENT = "independent"
+    SHARED = "shared"
+    BLIND = "blind"
+
+
+class SubproblemStatus(StrEnum):
+    OPEN = "open"
+    ACTIVE = "active"
+    BLOCKED = "blocked"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
+
+
+class HypothesisStatus(StrEnum):
+    PROPOSED = "proposed"
+    TESTING = "testing"
+    SUPPORTED = "supported"
+    CONTRADICTED = "contradicted"
+    INCONCLUSIVE = "inconclusive"
+    REJECTED = "rejected"
+
+
+class TaskStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+    CANCELLED = "cancelled"
+
+
+class ResourceClass(StrEnum):
+    LLM = "llm"
+    CODING = "coding"
+    CPU = "cpu"
+    GPU = "gpu"
+
+
+class ObservationRelation(StrEnum):
+    SUPPORTS = "supports"
+    CONTRADICTS = "contradicts"
+    NEUTRAL = "neutral"
+    INVALID = "invalid"
+
+
 class ExperimentStatus(StrEnum):
+    PLANNED = "planned"
+    IMPLEMENTING = "implementing"
+    IMPLEMENTED = "implemented"
+    TESTING = "testing"
+    EVALUATING = "evaluating"
+    IMPLEMENTATION_FAILED = "implementation_failed"
+    TEST_FAILED = "test_failed"
+    RUN_FAILED = "run_failed"
+    INVALID_RESULT = "invalid_result"
+    TIMEOUT = "timeout"
     PROPOSED = "proposed"
     SELECTED = "selected"
     RUNNING = "running"
@@ -51,11 +107,31 @@ class EntityType(StrEnum):
     OBSERVATION = "observation"
     CLAIM = "claim"
     DECISION = "decision"
+    TASK = "task"
+    EVIDENCE = "evidence"
+    BASELINE = "baseline"
 
 
 class EntityReference(Model):
     entity_type: EntityType
     entity_id: EntityId
+
+
+PositiveInt = Annotated[int, Field(strict=True, gt=0)]
+Confidence = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+
+
+class ResourceSlots(Model):
+    llm_slots: PositiveInt = 4
+    coding_slots: PositiveInt = 1
+    cpu_jobs: PositiveInt = 1
+    gpu_jobs: PositiveInt = 1
+
+
+class CycleLimits(Model):
+    max_cycles: PositiveInt = 30
+    max_experiments: PositiveInt = 50
+    stagnation_cycles: PositiveInt = 5
 
 
 class ResourceLimits(Model):
@@ -78,20 +154,28 @@ class EvaluationProtocol(Model):
     constraints: list[Text]
 
 
+class MetricDirection(StrEnum):
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
+    INFORMATIONAL = "informational"
+
+
 class Measurement(Model):
     name: Text
     value: FiniteNumber
+    direction: MetricDirection
     unit: Text | None = None
 
 
 class ConstraintCheck(Model):
     name: Text
     passed: bool = Field(strict=True)
-    measured_value: FiniteNumber
-    threshold: FiniteNumber
+    measured_value: FiniteNumber | None = None
+    threshold: FiniteNumber | None = None
 
 
 class ExecutionFailureType(StrEnum):
+    IMPLEMENTATION_FAILURE = "implementation_failure"
     BUILD_FAILURE = "build_failure"
     TEST_FAILURE = "test_failure"
     RUNTIME_CRASH = "runtime_crash"

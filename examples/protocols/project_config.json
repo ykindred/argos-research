@@ -31,12 +31,28 @@
       "tests/**"
     ],
     "protected_paths": [
-      "data/**"
+      "evaluate.py",
+      "data/**",
+      "baseline/**"
     ]
   },
   "resource_limits": {
     "timeout_seconds": 120,
     "max_memory_mb": 1024,
     "max_cpu_cores": 1
+  },
+  "research_charter": "# Research Charter\nReduce runtime while preserving outputs; human owns direction.",
+  "research_direction": "Computational efficiency",
+  "held_out_test_protocol": "Fixed held-out inputs v1; no tuning on these inputs.",
+  "resources": {
+    "llm_slots": 4,
+    "coding_slots": 1,
+    "cpu_jobs": 1,
+    "gpu_jobs": 1
+  },
+  "limits": {
+    "max_cycles": 30,
+    "max_experiments": 50,
+    "stagnation_cycles": 5
   }
 }

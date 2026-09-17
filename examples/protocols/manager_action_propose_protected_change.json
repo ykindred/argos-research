@@ -1,0 +1,10 @@
+{
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "rationale": "Explicit bounded next step.",
+  "action": {
+    "action_type": "propose_protected_change",
+    "target": "baseline",
+    "proposed_change": "Refresh from an explicitly approved clean checkout.",
+    "requires_human_approval": true
+  }
+}

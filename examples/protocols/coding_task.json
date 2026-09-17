@@ -1,0 +1,14 @@
+{
+  "task_id": "00000000-0000-4000-8000-000000000040",
+  "experiment_id": "00000000-0000-4000-8000-000000000005",
+  "requested_change": "Implement bounded caching.",
+  "scope": {
+    "editable_paths": [
+      "src/**"
+    ],
+    "protected_paths": [
+      "evaluate.py",
+      "data/**"
+    ]
+  }
+}
