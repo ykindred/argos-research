@@ -31,7 +31,9 @@ Pydantic models and a SQLite Research State store with provenance, revision
 history and bounded snapshots, plus RM/RA roles, independent dispatch, structured
 validation and a deterministic fake LLM backend. It also provides implementation-only
 coding backends and isolated Git-worktree build/test/run execution with durable
-evidence and process timeouts. The complete research loop is
+evidence and process timeouts. Deterministic project-command evaluation now adds
+strict metrics/constraints, clean baseline execution, pinned comparisons, and
+persistent neutral Observations. The complete research loop is
 not yet implemented. See the state-store and research-agent documentation for
 persistence and human approval boundaries.
 
@@ -45,6 +47,7 @@ The v0.1 goal is to build a minimal end-to-end research loop with persistent res
 - [Research State Store](docs/research-state.md)
 - [Research Manager and Research Agents](docs/research-agents.md)
 - [Experiment Agent and Isolated Execution](docs/execution.md)
+- [Evaluator, Observations and Baselines](docs/evaluation.md)
 
 ## Development
 
