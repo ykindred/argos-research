@@ -9,7 +9,7 @@ from argos.common import EntityId, Model, Text
 
 class LLMRequest(Model):
     task_id: EntityId
-    role: Literal["manager", "research_agent"]
+    role: Literal["manager", "research_agent", "critic"]
     system_prompt: Text
     context_json: Text
     output_schema: dict

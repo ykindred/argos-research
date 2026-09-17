@@ -199,6 +199,12 @@ class CriticReview(Model):
     risks: list[Text]
     requested_checks: list[Text]
 
+    @model_validator(mode="after")
+    def actionable_evidence_request(self) -> Self:
+        if self.verdict == CriticVerdict.NEEDS_MORE_EVIDENCE and not self.requested_checks:
+            raise ValueError("needs_more_evidence requires at least one specific requested check")
+        return self
+
 
 class ManagerActionType(StrEnum):
     CLOSE_SUBPROBLEM = "close_subproblem"
