@@ -181,6 +181,8 @@ class ExecutionFailureType(StrEnum):
     RUNTIME_CRASH = "runtime_crash"
     TIMEOUT = "timeout"
     INVALID_COMMAND = "invalid_command"
+    INVALID_MODIFICATION = "invalid_modification"
+    MISSING_ARTIFACT = "missing_artifact"
     INVALID_EVALUATOR_OUTPUT = "invalid_evaluator_output"
 
 
