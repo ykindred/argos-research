@@ -17,6 +17,7 @@ from argos.protocols import (
 )
 from argos.state.store import StateSnapshot
 
+from .briefing import BriefingBuilder
 from .prompts import FALSIFICATION_PROMPT, MANAGER_PROMPT, RESEARCH_AGENT_PROMPT
 from .runtime import AgentOutcome, StructuredCaller
 
@@ -37,8 +38,9 @@ class ResearchBatch(Model):
 class ResearchManager:
     """Called by a host on completed events; no polling, store or execution tools."""
 
-    def __init__(self, caller: StructuredCaller):
+    def __init__(self, caller: StructuredCaller, *, briefing=None):
         self.caller = caller
+        self.briefing = briefing or BriefingBuilder()
 
     async def plan(
         self,
@@ -51,6 +53,9 @@ class ResearchManager:
             "review_recorded",
             "hypotheses_recorded",
             "human_answered",
+            "actions_recorded",
+            "component_failed",
+            "recovered",
         ],
     ) -> AgentOutcome[ManagerPlan]:
         if event not in {
@@ -59,6 +64,9 @@ class ResearchManager:
             "review_recorded",
             "hypotheses_recorded",
             "human_answered",
+            "actions_recorded",
+            "component_failed",
+            "recovered",
         }:
             raise ValueError("RM requires a completed research event, not a polling tick")
         return await self._invoke(snapshot, task_id, event, None)
@@ -87,63 +95,15 @@ class ResearchManager:
             raise ValueError("Research project is not active")
         if snapshot.main_research_question != snapshot.project.config.main_research_question:
             raise ValueError("Snapshot question must match the approved project question")
-        # Limit rows and omit repeated execution logs / old agent actions. The hard character
-        # cap rejects oversized context rather than silently cutting evidence or the charter.
-        fields = (
-            "active_subproblems",
-            "active_branches",
-            "hypotheses",
-            "recent_observations",
-            "candidate_claims",
-            "failed_directions",
-            "abandoned_branches",
-            "rejected_claims",
-            "reviews",
-        )
-        data = snapshot.model_dump(mode="json")
-        frontier = {key: data[key][:8] for key in fields}
-        frontier["truncated"] = sorted(
-            set(snapshot.truncated) | {key for key in fields if len(data[key]) > 8}
-        )
-        frontier["failed_runs"] = [
-            {
-                "id": str(run.id),
-                "experiment_id": str(run.experiment_id),
-                "failure": run.result.failure.model_dump(mode="json"),
-            }
-            for run in snapshot.failed_runs[:8]
-            if run.result and run.result.failure
-        ]
-        frontier["recent_experiments"] = [
-            {
-                "id": str(exp.id),
-                "hypothesis_id": str(exp.spec.hypothesis_id),
-                "status": exp.status,
-                "goal": exp.spec.goal,
-            }
-            for exp in snapshot.recent_experiments[:8]
-        ]
-        frontier["decisions"] = [
-            {
-                "id": str(decision.id),
-                "summary": decision.summary,
-                "rationale": decision.rationale,
-                "references": [ref.model_dump(mode="json") for ref in decision.references],
-            }
-            for decision in snapshot.decisions[:5]
-        ]
-        for key, limit in (("failed_runs", 8), ("recent_experiments", 8), ("decisions", 5)):
-            if len(data[key]) > limit and key not in frontier["truncated"]:
-                frontier["truncated"].append(key)
-        context = {
-            "event": event,
-            "project": data["project"],
-            "frontier": frontier,
-            "exploration": batch.model_dump(mode="json") if batch else None,
-        }
+        context = self.briefing.build(snapshot, event=event, batch=batch)
 
         def validate(plan: ManagerPlan):
-            for action in plan.actions:
+            for index, action in enumerate(plan.actions):
+                if action.action.action_type in ("dispatch_research_agents", "synthesize"):
+                    if index != len(plan.actions) - 1:
+                        raise ValueError(
+                            "Exploration/synthesis must end a plan: join before more decisions"
+                        )
                 if action.project_id != snapshot.project.id:
                     raise ValueError("Manager action belongs to another project")
                 payload = action.action

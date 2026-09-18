@@ -1,0 +1,26 @@
+research_direction: Exact integer collection processing
+held_out_test_protocol: test_algorithm.py fixed edge cases; do not modify
+research_context: Count distinct integers; investigate redundant membership comparisons.
+main_research_question: Can membership comparisons be reduced while preserving exact distinct counts?
+source_repository: repo
+build_command: [python3, -B, -c, "import ast; ast.parse(open('algorithm.py').read())"]
+test_command: [python3, -B, test_algorithm.py]
+evaluation_protocol:
+  name: distinct-v1
+  command: [python3, -B, evaluate.py]
+  metric_names: [comparisons, runtime, peak_memory]
+  constraints: [correctness]
+scope:
+  editable_paths: [algorithm.py]
+  protected_paths: [evaluate.py, test_algorithm.py]
+resource_limits:
+  timeout_seconds: 10
+resources:
+  llm_slots: 3
+  coding_slots: 1
+  cpu_jobs: 1
+  gpu_jobs: 1
+limits:
+  max_cycles: 20
+  max_experiments: 3
+  stagnation_cycles: 5

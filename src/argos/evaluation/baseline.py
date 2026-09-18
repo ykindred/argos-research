@@ -40,12 +40,14 @@ class BaselineRunner:
         self.cpu_sem = cpu_sem or asyncio.Semaphore(project.resources.cpu_jobs)
         self.gpu_sem = gpu_sem or asyncio.Semaphore(project.resources.gpu_jobs)
 
-    async def execute(self, spec: ExperimentSpec) -> ExperimentResult:
+    async def execute(
+        self, spec: ExperimentSpec, *, run_id: UUID | None = None
+    ) -> ExperimentResult:
         spec = ExperimentSpec.model_validate_json(spec.model_dump_json())
         if spec.evaluation_protocol != self.project.evaluation_protocol:
             raise ValueError("Baseline cannot replace the protected evaluator")
         started = datetime.now(UTC)
-        ident = uuid4()
+        ident = run_id or uuid4()
         attempt = self.storage / str(ident)
         evidence = attempt / "evidence"
         evidence.mkdir(parents=True, exist_ok=False)
@@ -68,6 +70,8 @@ class BaselineRunner:
         )
         try:
             source = self.worktrees.source_commit()
+            configuration["source_commit"] = source
+            (evidence / "configuration.json").write_text(json.dumps(configuration, indent=2))
             self.worktrees.create(workspace, source)
             created = True
             # Includes ignored/untracked files; a baseline begins with only committed inputs.
@@ -94,8 +98,14 @@ class BaselineRunner:
                                 )
                             except ProcessCancelled as exc:
                                 commands.append(exc.record)
+                                (evidence / f"command-{index}.result.json").write_text(
+                                    exc.record.model_dump_json(indent=2)
+                                )
                                 raise asyncio.CancelledError() from exc
                             commands.append(outcome.record)
+                            (evidence / f"command-{index}.result.json").write_text(
+                                outcome.record.model_dump_json(indent=2)
+                            )
                             if (
                                 outcome.timed_out
                                 or outcome.invalid_command
@@ -170,7 +180,9 @@ class BaselineRunner:
             artifacts=artifacts,
             failure=failure,
         )
-        (evidence / "result.json").write_text(result.model_dump_json(indent=2))
+        temporary = evidence / "result.json.tmp"
+        temporary.write_text(result.model_dump_json(indent=2))
+        temporary.replace(evidence / "result.json")
         if cancelled:
             raise cancelled
         return result
