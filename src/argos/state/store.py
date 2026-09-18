@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -93,6 +94,39 @@ class StateStore:
             raise StateError(f"Unsupported state schema version: {version}")
         self._db.executescript(files("argos.state").joinpath("schema.sql").read_text())
         self._depth = 0
+
+    def runtime_get(self, project_id: UUID, key: str) -> dict | None:
+        """Host-only cursor/outcome storage; never exposed as an agent tool."""
+        self.get(m.Project, project_id)
+        row = self._db.execute(
+            "SELECT payload FROM runtime_records WHERE project_id=? AND key=?",
+            (str(project_id), key),
+        ).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def runtime_put(self, project_id: UUID, key: str, payload: dict) -> None:
+        with self.transaction():
+            self.get(m.Project, project_id)
+            encoded = json.dumps(payload, allow_nan=False)
+            self._db.execute(
+                "INSERT INTO runtime_records VALUES (?, ?, ?) "
+                "ON CONFLICT(project_id, key) DO UPDATE SET payload=excluded.payload",
+                (str(project_id), key, encoded),
+            )
+            self._db.execute(
+                "INSERT INTO runtime_history(project_id, key, payload) VALUES (?, ?, ?)",
+                (str(project_id), key, encoded),
+            )
+
+    def runtime_history(self, project_id: UUID) -> list[dict]:
+        return [
+            dict(row)
+            for row in self._db.execute(
+                "SELECT sequence, key, payload FROM runtime_history WHERE project_id=? "
+                "ORDER BY sequence",
+                (str(project_id),),
+            )
+        ]
 
     def close(self):
         self._db.close()

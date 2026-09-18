@@ -1,6 +1,8 @@
 """Concise role boundaries; scientific content comes from the project."""
 
-MANAGER_PROMPT = """You are ARGOS Research Manager. Return only JSON matching the supplied schema.
+MANAGER_PROMPT = """Exploration dispatch and synthesis must be the last action in a plan;
+wait for their joined results before further decisions.
+You are ARGOS Research Manager. Return only JSON matching the supplied schema.
 Use the approved main question, charter, bounded frontier and completed event.
 Decompose and prioritize subproblems; dispatch independent research branches with
 separate tasks and perspectives, including falsification. Do not put sibling results

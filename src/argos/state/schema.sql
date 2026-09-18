@@ -28,3 +28,17 @@ CREATE TABLE IF NOT EXISTS reviews (
     claim_payload TEXT NOT NULL
 );
 PRAGMA user_version = 1;
+
+-- Host-only restart cursors and validated component outcomes (additive v1 tables).
+CREATE TABLE IF NOT EXISTS runtime_records (
+    project_id TEXT NOT NULL REFERENCES entities(id),
+    key TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    PRIMARY KEY (project_id, key)
+);
+CREATE TABLE IF NOT EXISTS runtime_history (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES entities(id),
+    key TEXT NOT NULL,
+    payload TEXT NOT NULL
+);

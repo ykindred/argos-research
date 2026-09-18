@@ -5,9 +5,10 @@ import fnmatch
 import json
 import math
 import shutil
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from argos.backends.coding import CodingBackend
 from argos.common import ExecutionFailure, PathScope
@@ -89,11 +90,17 @@ class ExperimentAgent:
         self.cpu_sem = asyncio.Semaphore(self.project.resources.cpu_jobs)
         self.gpu_sem = asyncio.Semaphore(self.project.resources.gpu_jobs)
 
-    async def execute(self, spec: ExperimentSpec) -> ExperimentResult:
+    async def execute(
+        self,
+        spec: ExperimentSpec,
+        *,
+        run_id: UUID | None = None,
+        record_phase: Callable[[str], None] | None = None,
+    ) -> ExperimentResult:
         # Revalidate even instances: callers can mutate nested lists or bypass constructors.
         spec = ExperimentSpec.model_validate_json(spec.model_dump_json())
         started = datetime.now(UTC)
-        run_id = uuid4()
+        run_id = run_id or uuid4()
         attempt = self.storage / str(spec.experiment_id) / str(run_id)
         evidence = attempt / "evidence"
         evidence.mkdir(parents=True, exist_ok=False)
@@ -117,6 +124,8 @@ class ExperimentAgent:
         def event(status: str):
             nonlocal phase
             phase = status
+            if record_phase:
+                record_phase(status)
             with (evidence / "events.jsonl").open("a") as stream:
                 stream.write(
                     json.dumps({"status": status, "at": datetime.now(UTC).isoformat()}) + "\n"
@@ -142,6 +151,8 @@ class ExperimentAgent:
         event("planned")
         try:
             source = self.worktrees.source_commit()
+            config["source_commit"] = source
+            (evidence / "configuration.json").write_text(json.dumps(config, indent=2))
             if spec.evaluation_protocol != self.project.evaluation_protocol:
                 raise ExecutionError("invalid_modification", "Experiment cannot replace evaluator")
             for scope in [self.project.scope, spec.scope]:

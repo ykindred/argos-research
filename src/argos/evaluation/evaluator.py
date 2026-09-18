@@ -197,7 +197,9 @@ class CommandEvaluator:
             provenance=provenance,
             failure=failure,
         )
-        (evidence / "evaluation.json").write_text(evaluation.model_dump_json(indent=2))
+        temporary = evidence / "evaluation.json.tmp"
+        temporary.write_text(evaluation.model_dump_json(indent=2))
+        temporary.replace(evidence / "evaluation.json")
         if cancelled:
             raise cancelled
         return evaluation

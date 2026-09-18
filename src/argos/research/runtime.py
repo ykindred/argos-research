@@ -52,6 +52,7 @@ class StructuredCaller:
         max_context_chars: int = 60_000,
         max_output_chars: int = 60_000,
         record_task: Callable[[Task], None] | None = None,
+        record_outcome: Callable[[AgentOutcome], None] | None = None,
     ):
         if type(llm_slots) is not int or llm_slots < 1:
             raise ValueError("llm_slots must be a positive integer")
@@ -66,6 +67,7 @@ class StructuredCaller:
         self.max_context_chars = max_context_chars
         self.max_output_chars = max_output_chars
         self.record_task = record_task
+        self.record_outcome = record_outcome
 
     def _record(self, task: Task):
         if self.record_task:
@@ -156,5 +158,12 @@ class StructuredCaller:
                 "finished_at": datetime.now(UTC),
             }
         )
-        self._record(finished)
-        return AgentOutcome[output_type](task=finished, output=output)
+        outcome = AgentOutcome[output_type](task=finished, output=output)
+        if self.record_outcome:
+            try:
+                self.record_outcome(outcome)
+            except Exception as exc:
+                raise TaskRecordingError("Outcome persistence failed") from exc
+        else:
+            self._record(finished)
+        return outcome
