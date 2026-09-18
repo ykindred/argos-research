@@ -178,5 +178,5 @@ stored JSON remains readable without a SQLite schema migration.
 Handoff: ARGOS (`ykindred/argos-research`), branch
 `codex/issue-6-20260917182552`, issue #6 Evaluator + Observation. Implementation is
 under `src/argos/evaluation/`; test evidence is `tests/test_evaluation.py` and the
-actual results above. No FGIM code or results were used. Human review of the
+actual results above. Human review of the
 provisional shared-interface additions remains pending for the supervisor's PR.

@@ -86,8 +86,7 @@ prove data flow and validation, not autonomous scientific judgment.
 
 No real model call, synthetic autonomous E2E, real research repository validation,
 ≥8-hour run, human interface approval or scientific acceptance is claimed here.
-Human review remains pending for the PR. No FGIM code, data, memory or results were
-used. The full architecture, task1.md and project-policy.md were supplied in the
+Human review remains pending for the PR. The full architecture, task1.md and project-policy.md were supplied in the
 user task; separate files are absent in this checkout. Repository guidance and
 issues #1–#8 were read, with the latest user requirements taking precedence.
 

@@ -157,7 +157,6 @@ there is no semantic filter that can identify sibling prose copied into task tex
 No real LLM integration, CodingBackend, evaluator, Critic agent, process execution,
 synthetic executable project, complete autonomous E2E, real research repository,
 or ≥8-hour run is claimed. Human review of interfaces remains pending for the PR.
-FGIM code, memory, data and evidence were not used or modified.
 
 ## Handoff and actual validation
 

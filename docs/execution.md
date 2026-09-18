@@ -135,7 +135,7 @@ interface review is pending. No real backend, real research-repository validatio
 or eight-hour run is claimed.
 
 Handoff: ARGOS (`ykindred/argos-research`), branch
-`codex/issue-5-20260917180834`, issue #5. No FGIM files or experiments are involved.
+`codex/issue-5-20260917180834`, issue #5.
 Runtime evidence is at `<storage>/<experiment UUID>/<run UUID>/evidence/`.
 
 Actual validation on Python 3.12.3 using uv (2026-09-18):
