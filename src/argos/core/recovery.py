@@ -3,10 +3,23 @@
 import json
 import shutil
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from argos.common import CommandRecord, ExecutionFailure
 from argos.execution.agent import safe_file
 from argos.protocols import ExperimentResult
+
+
+def recover_execution_result(spec, run_id, started_at, project_config, worktrees, evidence, reason):
+    """Import a valid result, or retain corruption and fail without replaying work."""
+    manifest = evidence / "result.json"
+    if manifest.exists():
+        try:
+            return ExperimentResult.model_validate_json(manifest.read_text())
+        except ValueError:
+            manifest.replace(evidence / f"result.invalid-{uuid4()}.json")
+            reason = f"{reason}; invalid execution result manifest retained"
+    return interrupted_result(spec, run_id, started_at, project_config, worktrees, evidence, reason)
 
 
 def interrupted_result(spec, run_id, started_at, project_config, worktrees, evidence, reason):
@@ -79,5 +92,7 @@ def interrupted_result(spec, run_id, started_at, project_config, worktrees, evid
         artifacts=artifacts,
         failure=ExecutionFailure(kind="implementation_failure", message=reason),
     )
-    (evidence / "result.json").write_text(result.model_dump_json(indent=2))
+    temporary = evidence / "result.json.tmp"
+    temporary.write_text(result.model_dump_json(indent=2))
+    temporary.replace(evidence / "result.json")
     return result

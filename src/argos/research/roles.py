@@ -107,6 +107,11 @@ class ResearchManager:
                 if action.project_id != snapshot.project.id:
                     raise ValueError("Manager action belongs to another project")
                 payload = action.action
+                if batch is not None and payload.action_type == "synthesize":
+                    raise ValueError(
+                        "This call is already synthesis: summarize the supplied outcomes and "
+                        "choose the next action instead of requesting synthesis again"
+                    )
                 if isinstance(payload, DispatchResearchAgents):
                     for task in payload.tasks:
                         if task.context_policy != "independent":
@@ -130,7 +135,14 @@ class ResearchManager:
         request = LLMRequest(
             task_id=task_id,
             role="manager",
-            system_prompt=MANAGER_PROMPT,
+            system_prompt=MANAGER_PROMPT
+            + (
+                "\nThis call IS the synthesis step. All exploration outcomes are supplied. "
+                "Write your combined assessment in summary and choose the next research action. "
+                "Do not return a synthesize action; that would only request this same step again."
+                if batch is not None
+                else ""
+            ),
             context_json=json.dumps(context),
             output_schema=ManagerPlan.model_json_schema(),
         )

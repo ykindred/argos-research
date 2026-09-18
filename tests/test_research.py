@@ -619,6 +619,40 @@ def test_synthesis_rejects_duplicate_or_cross_project_results(setup):
         asyncio.run(manager.synthesize(store.snapshot(project.id), batch, task_id=uuid4()))
 
 
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+def test_synthesis_cannot_recursively_request_itself(setup, repair_succeeds):
+    store, _, project, dispatch, _ = setup
+    backend = FakeLLMBackend({task.id: [reply(task)] for task in dispatch.action.tasks})
+    batch = asyncio.run(
+        ResearchDispatcher(ResearchAgent(StructuredCaller(backend))).dispatch(dispatch)
+    )
+    ident = uuid4()
+    bad = plan(
+        action(project, "synthesize", task_ids=[task.id for task in dispatch.action.tasks])
+    ).model_dump_json()
+    good = plan(
+        action(
+            project,
+            "create_hypothesis",
+            subproblem_id=dispatch.action.tasks[0].subproblem_id,
+            statement="The combined evidence motivates a controlled pilot.",
+            rationale="Assess the joined results before choosing an experiment",
+        )
+    ).model_dump_json()
+    backend = FakeLLMBackend({ident: [bad, good if repair_succeeds else bad]})
+    outcome = asyncio.run(
+        ResearchManager(StructuredCaller(backend)).synthesize(
+            store.snapshot(project.id), batch, task_id=ident
+        )
+    )
+    assert outcome.task.status == ("completed" if repair_succeeds else "failed")
+    assert outcome.task.repair_attempts == 1
+    assert len(backend.requests) == 2
+    assert "already synthesis" in backend.requests[1].repair_error
+    assert "This call IS the synthesis step" in backend.requests[0].system_prompt
+    assert not store.list(m.Hypothesis)  # A role proposes; only host code applies it.
+
+
 def test_research_state_writer_rejects_foreign_hypothesis_without_decision(setup):
     store, writer, project, _, _ = setup
     other_data = project.model_dump()

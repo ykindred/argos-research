@@ -168,6 +168,56 @@ def test_evaluation_manifest_recovery_does_not_repeat_measurement(setup, monkeyp
     assert len(list((storage / "evaluation").rglob("evaluation.json"))) == 1
 
 
+def test_truncated_execution_manifest_preserves_evidence_and_fails_without_replay(setup):
+    store, project, storage, backend, coding, runtime = setup
+
+    def crash(result):
+        raise RuntimeError("Crash before execution state commit")
+
+    runtime._execution_result = crash
+    with pytest.raises(RuntimeError):
+        run(runtime)
+    manifest = next((storage / "execution").rglob("result.json"))
+    manifest.write_text('{"status":')
+    restarted = build_runtime(store, project, storage, backend, coding)
+    run(restarted)
+    assert restarted.project.status == "completed"
+    assert len(coding.calls) == 1
+    result = store.list(m.Run, project_id=project.id)[0].result
+    assert result.status == "failed"
+    assert "manifest" in result.failure.message.lower()
+    assert next(manifest.parent.glob("result.invalid-*.json")).read_text() == '{"status":'
+    assert not store.list(m.Observation, project_id=project.id)
+
+
+def test_truncated_baseline_execution_manifest_requires_explicit_new_measurement(
+    setup, monkeypatch
+):
+    from argos.evaluation import BaselineRunner
+
+    store, project, storage, backend, coding, runtime = setup
+    original = BaselineRunner.execute
+
+    async def crash(self, *args, **kwargs):
+        await original(self, *args, **kwargs)
+        raise RuntimeError("Crash before baseline state commit")
+
+    monkeypatch.setattr(BaselineRunner, "execute", crash)
+    with pytest.raises(RuntimeError):
+        asyncio.run(refresh_baseline(store, project, storage, rationale="Human baseline"))
+    manifest = next((storage / "baselines").rglob("result.json"))
+    manifest.write_text('{"status":')
+    monkeypatch.setattr(BaselineRunner, "execute", original)
+    with pytest.raises(StateError, match="Baseline failed"):
+        asyncio.run(refresh_baseline(store, project, storage, rationale="Human recovery"))
+    runs = store.list(m.Run, project_id=project.id)
+    assert len(runs) == 1 and runs[0].status == "failed"
+    assert len(runs[0].result.commands) == 3
+    assert runtime.project.baseline_id is None
+    assert not store.runtime_get(project.id, "baseline_cursor")
+    assert next(manifest.parent.glob("result.invalid-*.json")).read_text() == '{"status":'
+
+
 def test_cancelled_execution_is_persisted_and_never_automatically_retried(setup):
     store, project, storage, backend, coding, runtime = setup
     run(runtime, 9)
