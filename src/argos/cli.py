@@ -97,6 +97,8 @@ def main(argv=None):
                     {
                         "project": project.model_dump(mode="json"),
                         "runtime": store.runtime_get(project.id, "cursor"),
+                        "completion_semantics": "Runtime completion is not scientific success; "
+                        "inspect claim evidence and separate Critic assessments",
                         "snapshot": store.snapshot(project.id, limit=8).model_dump(mode="json"),
                     }
                 )

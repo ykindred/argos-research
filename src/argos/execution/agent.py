@@ -159,8 +159,18 @@ class ExperimentAgent:
                 if scope:
                     for pattern in scope.editable_paths + scope.protected_paths:
                         relative_path(pattern)
-            for name in spec.required_artifacts:
-                relative_path(name)
+            for item in spec.artifact_requirements:
+                relative_path(item.path)
+                if item.producer == "coding":
+                    scopes = [self.project.scope] + ([spec.scope] if spec.scope else [])
+                    if any(matches(item.path, scope.protected_paths) for scope in scopes):
+                        raise ExecutionError("invalid_modification", "Coding artifact is protected")
+                    if not item.path.startswith(".argos-coding/") and not all(
+                        matches(item.path, scope.editable_paths) for scope in scopes
+                    ):
+                        raise ExecutionError(
+                            "invalid_modification", "Coding artifact outside scope"
+                        )
             timeout = min(
                 spec.resource_limits.timeout_seconds, self.project.resource_limits.timeout_seconds
             )
@@ -178,6 +188,9 @@ class ExperimentAgent:
                     task_id=uuid4(),
                     experiment_id=spec.experiment_id,
                     requested_change=spec.requested_change,
+                    required_artifacts=[
+                        a for a in spec.artifact_requirements if a.producer == "coding"
+                    ],
                     project_scope=self.project.scope.model_copy(deep=True),
                     scope=PathScope(
                         editable_paths=scope.editable_paths,
@@ -264,11 +277,18 @@ class ExperimentAgent:
                     raise ExecutionError(
                         "invalid_modification", "Commands modified recorded source files"
                     )
-                for name in spec.required_artifacts:
+                (evidence / "stdout.log").write_text("".join(c.stdout for c in commands))
+                (evidence / "stderr.log").write_text("".join(c.stderr for c in commands))
+                (evidence / "revision.json").write_text(
+                    json.dumps({"source_commit": source, "resulting_commit": revision})
+                )
+                for item in spec.artifact_requirements:
                     try:
-                        path = safe_file(workspace, name)
+                        safe_file(evidence if item.producer == "host" else workspace, item.path)
                     except ValueError as exc:
-                        raise ExecutionError("missing_artifact", str(exc)) from exc
+                        raise ExecutionError(
+                            "missing_artifact", f"{item.producer} producer: {exc}"
+                        ) from exc
 
         except ExecutionError as exc:
             failure = exc.failure
@@ -313,10 +333,15 @@ class ExperimentAgent:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copyfile(path, target)
                         artifacts.append(str(target))
-                for name in spec.required_artifacts:
+                for item in spec.artifact_requirements:
                     try:
-                        path = safe_file(workspace, name)
-                        target = evidence / "artifacts" / name
+                        path = safe_file(
+                            evidence if item.producer == "host" else workspace, item.path
+                        )
+                        if item.producer == "host":
+                            artifacts.append(str(path))
+                            continue
+                        target = evidence / "artifacts" / item.path
                         target.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copyfile(path, target)
                         if str(target) not in artifacts:

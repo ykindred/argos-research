@@ -438,3 +438,37 @@ def test_cleanup_refuses_incomplete_preservation(setup):
     with pytest.raises(ValueError, match="incomplete"):
         agent.worktrees.cleanup(Path(result.worktree), evidence)
     assert Path(result.worktree).exists()
+
+
+def test_owned_artifacts_reach_coding_and_host_records_actual_revision(setup):
+    from argos.protocols import ArtifactRequirement
+
+    setup[2].required_artifacts = [
+        ArtifactRequirement(path=".argos-coding/implementation.txt", producer="coding"),
+        ArtifactRequirement(path="code.diff", producer="host"),
+        ArtifactRequirement(path="revision.json", producer="host"),
+    ]
+    backend = FakeCodingBackend({".argos-coding/implementation.txt": "Implemented nothing"})
+    _, result = execute(setup, backend)
+    assert result.status == "succeeded"
+    assert [a.path for a in backend.calls[0].required_artifacts] == [
+        ".argos-coding/implementation.txt"
+    ]
+    revision = json.loads((Path(result.diff_path).parent / "revision.json").read_text())
+    assert revision["resulting_commit"] == result.resulting_commit
+    assert result.diff_path in result.artifacts
+
+
+@pytest.mark.parametrize("name", ["evaluate.py", "outside.txt"])
+def test_coding_artifact_scope_rejected_before_backend(setup, name):
+    setup[2].required_artifacts = [{"path": name, "producer": "coding"}]
+    agent, result = execute(setup)
+    assert result.failure.kind == "invalid_modification"
+    assert not agent.backend.calls
+
+
+def test_missing_owned_artifact_identifies_responsible_producer(setup):
+    setup[2].required_artifacts = [{"path": ".argos-coding/missing.txt", "producer": "coding"}]
+    _, result = execute(setup)
+    assert result.failure.kind == "missing_artifact"
+    assert "coding producer" in result.failure.message

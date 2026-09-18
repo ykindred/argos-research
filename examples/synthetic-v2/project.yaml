@@ -1,0 +1,26 @@
+research_direction: Exact equality/hash-key collection processing
+held_out_test_protocol: test_algorithm.py fixed edge cases; do not modify
+research_context: Count distinct equality/hash keys; comparison counts are measured by protected instrumentation, never candidate-reported counters. Keys support equality and hashing; do not inspect their internals.
+main_research_question: Can membership comparisons be reduced while preserving exact distinct counts for equality/hash keys?
+source_repository: repo
+build_command: [python3, -B, -c, "import ast; ast.parse(open('algorithm.py').read())"]
+test_command: [python3, -B, test_algorithm.py]
+evaluation_protocol:
+  name: distinct-v2
+  command: [python3, -B, evaluate.py]
+  metric_names: [comparisons, hash_calls, runtime, peak_memory]
+  constraints: [correctness]
+scope:
+  editable_paths: [algorithm.py]
+  protected_paths: [evaluate.py, test_algorithm.py, measurement.py]
+resource_limits:
+  timeout_seconds: 10
+resources:
+  llm_slots: 3
+  coding_slots: 1
+  cpu_jobs: 1
+  gpu_jobs: 1
+limits:
+  max_cycles: 20
+  max_experiments: 3
+  stagnation_cycles: 5

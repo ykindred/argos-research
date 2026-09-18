@@ -475,7 +475,13 @@ def test_failed_experiment_can_be_followed_by_explicit_successful_attempt(setup)
             if context["frontier"]["failed_runs"] and not proposed_retry:
                 proposed_retry = True
                 previous = store.list(m.Experiment, project_id=project.id)[0]
-                spec = previous.spec.model_copy(update={"experiment_id": uuid4()})
+                spec = previous.spec.model_copy(
+                    update={
+                        "experiment_id": uuid4(),
+                        "retry_of": previous.id,
+                        "recovery_rationale": "Retry implementation after transient coding failure",
+                    }
+                )
                 return json.dumps(
                     {
                         "summary": "Explicitly retry implementation with the same scientific test",

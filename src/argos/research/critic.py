@@ -83,6 +83,23 @@ class LLMCritic:
         context = CriticInput.model_validate_json(context.model_dump_json())
 
         def validate(review: CriticReview):
+            if (
+                review.measurement_comparability == "not_assessed"
+                or review.main_question_support == "not_assessed"
+                or review.assessment_rationale is None
+            ):
+                raise ValueError(
+                    "New reviews must assess measurement_comparability and "
+                    "main_question_support with assessment_rationale; "
+                    "accepting a narrow claim does not establish the main goal"
+                )
+            if (
+                review.main_question_support == "supports"
+                and review.measurement_comparability != "comparable"
+            ):
+                raise ValueError(
+                    "Incomparable or uncertain measurements cannot support the main goal"
+                )
             if review.claim_id != context.claim.id:
                 raise ValueError("Review must refer to the assigned claim")
 

@@ -103,7 +103,7 @@ def test_blind_projection_omits_private_state_and_contains_raw_evidence(setup):
     request = critic.backend.requests[0]
     assert request.role == "critic"
     assert "PRIVATE-" not in request.context_json
-    assert "rationale" not in request.context_json
+    assert '"rationale":' not in request.context_json
     sent = json.loads(request.context_json)
     assert set(sent) == {
         "project_id",
@@ -305,3 +305,38 @@ def test_persistence_revalidates_outcome_and_rejects_foreign_identity(setup):
     with pytest.raises(ValidationError):
         adapter.record(context, invalid)
     assert not store.reviews(context.project_id)
+
+
+def test_legacy_review_remains_readable_but_new_review_requires_assessments(setup):
+    _, _, _, context, _ = setup
+    data = review(context, "accept").model_dump(mode="json")
+    for key in ("measurement_comparability", "main_question_support", "assessment_rationale"):
+        del data[key]
+    legacy = CriticReview.model_validate(data)
+    assert legacy.main_question_support == "not_assessed"
+    ident = uuid4()
+    critic = FakeCritic({ident: [legacy, legacy]})
+    result = asyncio.run(critic.review(context, task_id=ident))
+    assert result.output is None and result.task.repair_attempts == 1
+
+
+def test_narrow_claim_can_be_accepted_without_main_question_support(setup):
+    _, _, _, context, _ = setup
+    value = review(context, "accept")
+    value.measurement_comparability = "not_comparable"
+    value.main_question_support = "does_not_support"
+    value.assessment_rationale = "Counter changed meaning; literal output claim only"
+    ident = uuid4()
+    result = asyncio.run(FakeCritic({ident: [value]}).review(context, task_id=ident))
+    assert result.output.verdict == "accept"
+    assert result.output.main_question_support == "does_not_support"
+
+
+def test_incomparable_measurements_cannot_support_main_goal(setup):
+    _, _, _, context, _ = setup
+    value = review(context, "accept")
+    value.measurement_comparability = "not_comparable"
+    value.main_question_support = "supports"
+    ident = uuid4()
+    result = asyncio.run(FakeCritic({ident: [value, value]}).review(context, task_id=ident))
+    assert result.output is None

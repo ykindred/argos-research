@@ -37,6 +37,8 @@ class BriefingBuilder:
                 "hypothesis_id": str(exp.spec.hypothesis_id),
                 "status": exp.status,
                 "goal": exp.spec.goal,
+                "allowed_actions": ["implement_experiment"] if exp.status == "planned" else [],
+                "retry_of": str(exp.spec.retry_of) if exp.spec.retry_of else None,
             }
             for exp in snapshot.recent_experiments[:8]
         ]

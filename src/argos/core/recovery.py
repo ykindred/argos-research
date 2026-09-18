@@ -61,7 +61,7 @@ def interrupted_result(spec, run_id, started_at, project_config, worktrees, evid
     (evidence / "stderr.log").write_text("".join(c.stderr for c in commands))
     artifacts = []
     diagnostics = workspace / ".argos-coding"
-    names = list(spec.required_artifacts)
+    names = [a.path for a in spec.artifact_requirements if a.producer != "host"]
     if diagnostics.is_dir() and not diagnostics.is_symlink():
         names += [
             str(path.relative_to(workspace)) for path in diagnostics.rglob("*") if path.is_file()

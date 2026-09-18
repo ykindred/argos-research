@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from argos.backends import LLMRequest
-from argos.common import EntityId, EntityReference, Model, Text
+from argos.common import RETRYABLE_EXPERIMENT_STATUSES, EntityId, EntityReference, Model, Text
 from argos.protocols import (
     DispatchResearchAgents,
     ManagerAction,
@@ -98,6 +98,10 @@ class ResearchManager:
         context = self.briefing.build(snapshot, event=event, batch=batch)
 
         def validate(plan: ManagerPlan):
+            experiments = {e.id: e for e in snapshot.recent_experiments}
+            planned = {e.id for e in experiments.values() if e.status == "planned"}
+            consumed = set()
+            proposed = set()
             for index, action in enumerate(plan.actions):
                 if action.action.action_type in ("dispatch_research_agents", "synthesize"):
                     if index != len(plan.actions) - 1:
@@ -112,6 +116,13 @@ class ResearchManager:
                         "This call is already synthesis: summarize the supplied outcomes and "
                         "choose the next action instead of requesting synthesis again"
                     )
+                if payload.action_type in ("implement_experiment", "run_experiment"):
+                    if payload.experiment_id not in planned or payload.experiment_id in consumed:
+                        raise ValueError(
+                            "Execute each planned experiment once only; for a failed "
+                            "experiment propose a NEW spec with retry_of and recovery_rationale"
+                        )
+                    consumed.add(payload.experiment_id)
                 if isinstance(payload, DispatchResearchAgents):
                     for task in payload.tasks:
                         if task.context_policy != "independent":
@@ -119,6 +130,35 @@ class ResearchManager:
                         if task.main_research_question != snapshot.main_research_question:
                             raise ValueError("RA task must use the canonical main question")
                 if isinstance(payload, ProposeExperiment):
+                    spec = payload.spec
+                    if spec.experiment_id in experiments or spec.experiment_id in proposed:
+                        raise ValueError("New experiment must have a fresh ID")
+                    if any(isinstance(a, str) for a in spec.required_artifacts):
+                        raise ValueError(
+                            "Declare artifacts as objects with path and producer "
+                            "(host, coding, experiment); do not use prose filenames"
+                        )
+                    from argos.execution.agent import matches
+
+                    for item in spec.artifact_requirements:
+                        if item.producer == "coding":
+                            scope = snapshot.project.config.scope
+                            if matches(item.path, scope.protected_paths) or (
+                                not item.path.startswith(".argos-coding/")
+                                and not matches(item.path, scope.editable_paths)
+                            ):
+                                raise ValueError(
+                                    "Coding artifact must be inside editable scope "
+                                    "or .argos-coding/"
+                                )
+                    if spec.retry_of is not None:
+                        previous = experiments.get(spec.retry_of)
+                        if previous is None or previous.status not in RETRYABLE_EXPERIMENT_STATUSES:
+                            raise ValueError("retry_of must reference a visible failed experiment")
+                        if previous.spec.hypothesis_id != spec.hypothesis_id:
+                            raise ValueError("Retry must preserve the failed experiment hypothesis")
+                    proposed.add(spec.experiment_id)
+                    planned.add(spec.experiment_id)
                     config = snapshot.project.config
                     if payload.spec.evaluation_protocol != config.evaluation_protocol:
                         raise ValueError("Experiment cannot replace the protected evaluator")

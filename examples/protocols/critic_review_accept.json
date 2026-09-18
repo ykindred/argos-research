@@ -9,5 +9,8 @@
   "risks": [
     "The effect may depend on the workload."
   ],
-  "requested_checks": []
+  "requested_checks": [],
+  "measurement_comparability": "comparable",
+  "main_question_support": "uncertain",
+  "assessment_rationale": "Measurements are comparable; the main question needs additional evidence."
 }
