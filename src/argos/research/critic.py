@@ -7,7 +7,7 @@ from pydantic import Field, model_validator
 
 from argos.backends import FakeLLMBackend, LLMRequest
 from argos.common import EntityId, EntityReference, Model, Text
-from argos.models import Claim, Project, Subproblem
+from argos.models import Baseline, Claim, Project, Run, Subproblem
 from argos.protocols import CriticReview, EvaluatorResult, ExperimentResult, ExperimentSpec
 from argos.state import StateError, StateStore
 
@@ -25,6 +25,8 @@ class CriticEvidence(Model):
     spec: ExperimentSpec
     result: ExperimentResult
     evaluation: EvaluatorResult
+    baseline_result: ExperimentResult | None = None
+    baseline_evaluation: EvaluatorResult | None = None
     code_diff: str  # Empty is a legitimate unchanged experiment, not missing evidence.
 
     @model_validator(mode="after")
@@ -38,6 +40,16 @@ class CriticEvidence(Model):
             raise ValueError("Evaluation must match the reviewed run")
         if self.evaluation.protocol_name != self.spec.evaluation_protocol.name:
             raise ValueError("Evaluation must use the experiment protocol")
+        if (self.baseline_result is None) != (self.baseline_evaluation is None):
+            raise ValueError("Baseline execution and evaluation must be supplied together")
+        if self.baseline_result is not None:
+            if (
+                self.spec.baseline_id is None
+                or self.baseline_result.run_id != self.baseline_evaluation.run_id
+                or self.baseline_result.experiment_id != self.baseline_evaluation.experiment_id
+                or self.baseline_evaluation.protocol_name != self.spec.evaluation_protocol.name
+            ):
+                raise ValueError("Baseline evidence must match its run and pinned protocol")
         return self
 
 
@@ -162,8 +174,14 @@ class CriticState:
                     raise StateError("Review evidence requires recorded execution and evaluation")
                 if row.run.id not in code_diffs:
                     raise StateError("Missing code diff for review evidence")
+                baseline_run = None
+                if row.experiment.spec.baseline_id:
+                    baseline = self.store.get(Baseline, row.experiment.spec.baseline_id)
+                    baseline_run = self.store.get(Run, baseline.run_id)
                 evidence.append(
                     CriticEvidence(
+                        baseline_result=baseline_run.result if baseline_run else None,
+                        baseline_evaluation=baseline_run.evaluation if baseline_run else None,
                         observation_id=row.observation.id,
                         relation=row.evidence.relation,
                         observation_summary=row.observation.summary,

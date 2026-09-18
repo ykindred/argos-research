@@ -63,6 +63,7 @@ class StateSnapshot(Model):
     active_branches: list[m.ResearchBranch]
     hypotheses: list[m.Hypothesis]
     recent_experiments: list[m.Experiment]
+    recent_runs: list[m.Run] = Field(default_factory=list)
     recent_observations: list[m.Observation]
     candidate_claims: list[m.Claim]
     failed_directions: list[m.Hypothesis]
@@ -614,6 +615,7 @@ class StateStore:
             "active_branches": (m.ResearchBranch, ["active", "paused"]),
             "hypotheses": (m.Hypothesis, ["proposed", "testing", "supported", "inconclusive"]),
             "recent_experiments": (m.Experiment, None),
+            "recent_runs": (m.Run, ["succeeded"]),
             "recent_observations": (m.Observation, None),
             "candidate_claims": (m.Claim, ["active"]),
             "failed_directions": (m.Hypothesis, ["rejected", "contradicted"]),

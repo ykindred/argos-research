@@ -163,6 +163,7 @@ class ExperimentResult(Model):
     source_commit: Text
     resulting_commit: Text | None
     configuration: dict[str, JsonValue]
+    source_evidence: dict[str, JsonValue] = Field(default_factory=dict)
     commands: list[CommandRecord]
     artifacts: list[Text]
     failure: ExecutionFailure | None = None

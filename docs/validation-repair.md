@@ -68,3 +68,21 @@ rounds and a fresh eight-hour scripted soak on the final candidate are required 
 release. A correct negative result or explicitly unresolved conclusion is acceptable;
 fabricated or incomparable scientific success is not. Validation in progress is not
 acceptance, and an earlier revision's soak does not validate this revision.
+
+
+## Follow-up: evidence availability
+
+The first repaired real-model batch recorded correct independent measurements but one
+manager paused to request existing protocol and source records. A scoped host projection
+now reads immutable Git blobs for protected and editable files at the recorded revision,
+with a 6,000-byte text budget and 16-file limit. Larger, binary and symlink blobs expose
+identities and explicit omission markers only. No role receives arbitrary filesystem
+access. Execution results persist this projection; historical results default to an
+empty projection rather than being reconstructed from current source.
+
+Manager briefings include up to three recent successful run projections and command
+exit codes. Critic evidence also includes the pinned baseline execution and evaluation.
+This allows comparing protected blob identities and reading available measurement code
+without leaking RM deliberation. Identical hashes prove identity, not metric adequacy;
+omissions remain uncertainty. Prompt updates instruct roles to use evidence already
+supplied instead of requesting its duplicate from a human.

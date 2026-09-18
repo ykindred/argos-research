@@ -20,6 +20,7 @@ from argos.protocols import (
     ProjectConfig,
 )
 
+from .evidence import source_evidence
 from .process import ProcessCancelled, ProcessRunner
 from .worktree import WorktreeManager
 
@@ -111,6 +112,7 @@ class ExperimentAgent:
         revision = None
         commands = []
         artifacts = []
+        sources = {}
         failure = None
         phase = "planned"
         created = False
@@ -228,6 +230,7 @@ class ExperimentAgent:
                 tree, changed = self.worktrees.snapshot(workspace, source, evidence)
                 check_changes(changed, implementation=True)
                 revision = self.worktrees.record_revision(workspace, source, tree)
+                sources = source_evidence(self.worktrees, workspace, revision, self.project.scope)
                 event("implemented")
                 sem = self.gpu_sem if spec.resource_class == "gpu" else self.cpu_sem
                 async with sem:
@@ -365,6 +368,7 @@ class ExperimentAgent:
                 source_commit=source,
                 resulting_commit=revision,
                 configuration=config,
+                source_evidence=sources,
                 commands=commands,
                 artifacts=artifacts,
                 failure=failure,

@@ -362,3 +362,24 @@ def test_cli_init_and_explicit_refresh_preserve_baseline_history(tmp_path, capsy
         assert store.get(m.Baseline, project.baseline_id).previous_baseline_id == first
         assert len(store.list(m.Baseline, project_id=project.id)) == 2
     capsys.readouterr()
+
+
+def test_bounded_review_and_manager_receive_existing_protocol_evidence(setup):
+    from argos.research import CriticInput
+    from argos.research.briefing import BriefingBuilder
+
+    store, project, storage, backend, coding, runtime = setup
+    asyncio.run(refresh_baseline(store, project, storage, rationale="Human baseline"))
+    run(runtime)
+    request = next(request for request in backend.requests if request.role == "critic")
+    context = CriticInput.model_validate_json(request.context_json)
+    item = context.evidence[0]
+    assert item.baseline_result and item.baseline_evaluation
+    assert item.baseline_result.run_id == item.baseline_evaluation.run_id
+    baseline_files = {f["path"]: f for f in item.baseline_result.source_evidence["files"]}
+    candidate_files = {f["path"]: f for f in item.result.source_evidence["files"]}
+    assert candidate_files["evaluate.py"]["git_blob"] == baseline_files["evaluate.py"]["git_blob"]
+    assert "content" in candidate_files["evaluate.py"]
+    briefing = BriefingBuilder().build(store.snapshot(project.id), event="review_recorded")
+    assert len(briefing["frontier"]["execution_evidence"]) == 2
+    assert all(e["source_evidence"]["files"] for e in briefing["frontier"]["execution_evidence"])

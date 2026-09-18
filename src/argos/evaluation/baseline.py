@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from argos.common import ExecutionFailure
 from argos.execution.agent import safe_file
+from argos.execution.evidence import source_evidence
 from argos.execution.process import ProcessCancelled, ProcessRunner
 from argos.execution.worktree import WorktreeManager
 from argos.models import Baseline, Project, Run
@@ -54,6 +55,7 @@ class BaselineRunner:
         workspace = attempt / "worktree"
         commands = []
         artifacts = []
+        sources = {}
         source = "unavailable"
         created = False
         failure = None
@@ -74,6 +76,7 @@ class BaselineRunner:
             (evidence / "configuration.json").write_text(json.dumps(configuration, indent=2))
             self.worktrees.create(workspace, source)
             created = True
+            sources = source_evidence(self.worktrees, workspace, source, self.project.scope)
             # Includes ignored/untracked files; a baseline begins with only committed inputs.
             if self.worktrees.git(workspace, "status", "--porcelain", "--ignored"):
                 raise ValueError("Baseline checkout is not clean")
@@ -176,6 +179,7 @@ class BaselineRunner:
             source_commit=source,
             resulting_commit=source if created else None,
             configuration=configuration,
+            source_evidence=sources,
             commands=commands,
             artifacts=artifacts,
             failure=failure,

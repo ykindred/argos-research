@@ -472,3 +472,30 @@ def test_missing_owned_artifact_identifies_responsible_producer(setup):
     _, result = execute(setup)
     assert result.failure.kind == "missing_artifact"
     assert "coding producer" in result.failure.message
+
+
+def test_source_evidence_is_scoped_bounded_and_from_immutable_git(setup):
+    from argos.execution.evidence import source_evidence
+
+    repo, project, _, _ = setup
+    manager = WorktreeManager(repo)
+    revision = manager.source_commit()
+    (repo / "src/main.py").write_text("UNCOMMITTED PRIVATE CHANGE")
+    (repo / "secret.txt").write_text("not in scope")
+    evidence = source_evidence(manager, repo, revision, project.scope)
+    files = {f["path"]: f for f in evidence["files"]}
+    assert "secret.txt" not in files
+    assert files["src/main.py"]["content"] == "print('original')\n"
+    assert files["evaluate.py"]["role"] == "protected"
+    bounded = source_evidence(manager, repo, revision, project.scope, budget=0)
+    assert all("content" not in f and f["git_blob"] for f in bounded["files"])
+    limited = source_evidence(manager, repo, revision, project.scope, max_files=1)
+    assert len(limited["files"]) == 1 and limited["omitted_files"] > 0
+
+
+def test_successful_execution_persists_candidate_source_evidence(setup):
+    _, result = execute(setup, FakeCodingBackend({"src/main.py": "print('candidate')\n"}))
+    assert result.source_evidence["revision"] == result.resulting_commit
+    files = {f["path"]: f for f in result.source_evidence["files"]}
+    assert files["src/main.py"]["content"] == "print('candidate')\n"
+    assert files["evaluate.py"]["content"] == "print('protected evaluator')\n"

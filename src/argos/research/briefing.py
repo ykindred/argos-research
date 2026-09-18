@@ -42,6 +42,23 @@ class BriefingBuilder:
             }
             for exp in snapshot.recent_experiments[:8]
         ]
+        frontier["execution_evidence"] = [
+            {
+                "run_id": str(run.id),
+                "experiment_id": str(run.experiment_id),
+                "status": run.status,
+                "source_commit": run.result.source_commit,
+                "resulting_commit": run.result.resulting_commit,
+                "source_evidence": run.result.source_evidence,
+                "commands": [
+                    {"argv": c.argv, "exit_code": c.exit_code} for c in run.result.commands
+                ],
+            }
+            for run in snapshot.recent_runs[:3]
+            if run.result
+        ]
+        if len(snapshot.recent_runs) > 3:
+            frontier["truncated"].append("execution_evidence")
         frontier["decisions"] = [
             {
                 "id": str(decision.id),
