@@ -74,8 +74,18 @@ print(json.dumps(dict(task_id=t['task_id'], experiment_id=t['experiment_id'],
     assert any("implemented" in Path(p).read_text() for p in result.artifacts if p.endswith(".log"))
 
 
-def test_cli_run_with_stateless_offline_command_and_saved_files(setup, capsys):
+def test_cli_run_with_stateless_offline_command_and_saved_files(setup, capsys, monkeypatch):
     store, project, storage, backend, coding, runtime = setup
+    from argos.backends import command as command_module
+
+    original = command_module.CommandLLMBackend
+    configured_timeouts = []
+
+    def configured_backend(*args, **kwargs):
+        configured_timeouts.append(kwargs.get("timeout"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(command_module, "CommandLLMBackend", configured_backend)
     asyncio.run(refresh_baseline(store, project, storage, rationale="Human baseline"))
     files = storage / "files.json"
     files.write_text(json.dumps({"algorithm.py": demo.OPTIMIZED}))
@@ -95,6 +105,7 @@ def test_cli_run_with_stateless_offline_command_and_saved_files(setup, capsys):
         == 0
     )
     assert store.get(m.Project, project.id).status == "completed"
+    assert configured_timeouts == [project.config.resource_limits.timeout_seconds]
     assert len(store.reviews(project.id)) == 1
     capsys.readouterr()
 

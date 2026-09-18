@@ -123,7 +123,11 @@ def main(argv=None):
                     raise StateError("Establish/recover the baseline with baseline refresh first")
                 from argos.backends.command import CommandCodingBackend, CommandLLMBackend
 
-                llm = CommandLLMBackend(json.loads(args.backend_command), storage / "llm")
+                llm = CommandLLMBackend(
+                    json.loads(args.backend_command),
+                    storage / "llm",
+                    timeout=project.config.resource_limits.timeout_seconds,
+                )
                 if args.coding_command:
                     coding = CommandCodingBackend(json.loads(args.coding_command))
                 elif args.fake_files:
