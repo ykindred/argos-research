@@ -10,11 +10,11 @@ from argos.common import ExecutionFailure
 from argos.evaluation import BaselineRunner, CommandEvaluator, approve_baseline, record_evaluation
 from argos.execution import ExperimentAgent
 from argos.execution.process import recover_processes
-from argos.protocols import EvaluatorResult, ExperimentResult, ExperimentSpec
+from argos.protocols import EvaluatorResult, ExperimentSpec
 from argos.state import StateError
 
 from .orchestrator import Orchestrator, now
-from .recovery import interrupted_result
+from .recovery import recover_execution_result
 
 
 @contextmanager
@@ -111,19 +111,14 @@ async def refresh_baseline(store, project, directory, *, rationale):
     if run.result is None:
         if pending:
             evidence = runner.storage / str(run.id) / "evidence"
-            manifest = evidence / "result.json"
-            result = (
-                ExperimentResult.model_validate_json(manifest.read_text())
-                if manifest.exists()
-                else interrupted_result(
-                    spec,
-                    run.id,
-                    run.created_at,
-                    config,
-                    runner.worktrees,
-                    evidence,
-                    "Baseline interrupted",
-                )
+            result = recover_execution_result(
+                spec,
+                run.id,
+                run.created_at,
+                config,
+                runner.worktrees,
+                evidence,
+                "Baseline interrupted",
             )
         else:
             result = await runner.execute(spec, run_id=run.id)

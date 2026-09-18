@@ -30,7 +30,7 @@ from argos.research import (
 from argos.research.briefing import BriefingBuilder
 from argos.state import StateError, StateStore
 
-from .recovery import interrupted_result
+from .recovery import recover_execution_result
 from .state import HumanGate, Operation, RuntimeState
 
 
@@ -570,19 +570,15 @@ class Orchestrator:
             elif op.kind == "execute":
                 exp = self.store.get(m.Experiment, op.action.action.experiment_id)
                 evidence = self.executor.storage / str(exp.id) / str(op.run_id) / "evidence"
-                manifest = evidence / "result.json"
-                if manifest.exists():
-                    result = ExperimentResult.model_validate_json(manifest.read_text())
-                else:
-                    result = interrupted_result(
-                        exp.spec,
-                        op.run_id,
-                        op.started_at,
-                        self.project.config,
-                        self.executor.worktrees,
-                        evidence,
-                        reason,
-                    )
+                result = recover_execution_result(
+                    exp.spec,
+                    op.run_id,
+                    op.started_at,
+                    self.project.config,
+                    self.executor.worktrees,
+                    evidence,
+                    reason,
+                )
                 self._execution_result(result)
                 self.state.actions = self.state.actions[1:]
             elif op.kind == "evaluate":

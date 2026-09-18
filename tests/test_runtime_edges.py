@@ -74,8 +74,18 @@ print(json.dumps(dict(task_id=t['task_id'], experiment_id=t['experiment_id'],
     assert any("implemented" in Path(p).read_text() for p in result.artifacts if p.endswith(".log"))
 
 
-def test_cli_run_with_stateless_offline_command_and_saved_files(setup, capsys):
+def test_cli_run_with_stateless_offline_command_and_saved_files(setup, capsys, monkeypatch):
     store, project, storage, backend, coding, runtime = setup
+    from argos.backends import command as command_module
+
+    original = command_module.CommandLLMBackend
+    configured_timeouts = []
+
+    def configured_backend(*args, **kwargs):
+        configured_timeouts.append(kwargs.get("timeout"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(command_module, "CommandLLMBackend", configured_backend)
     asyncio.run(refresh_baseline(store, project, storage, rationale="Human baseline"))
     files = storage / "files.json"
     files.write_text(json.dumps({"algorithm.py": demo.OPTIMIZED}))
@@ -95,6 +105,7 @@ def test_cli_run_with_stateless_offline_command_and_saved_files(setup, capsys):
         == 0
     )
     assert store.get(m.Project, project.id).status == "completed"
+    assert configured_timeouts == [project.config.resource_limits.timeout_seconds]
     assert len(store.reviews(project.id)) == 1
     capsys.readouterr()
 
@@ -155,6 +166,56 @@ def test_evaluation_manifest_recovery_does_not_repeat_measurement(setup, monkeyp
     run(restarted)
     assert len(store.list(m.Observation, project_id=project.id)) == 1
     assert len(list((storage / "evaluation").rglob("evaluation.json"))) == 1
+
+
+def test_truncated_execution_manifest_preserves_evidence_and_fails_without_replay(setup):
+    store, project, storage, backend, coding, runtime = setup
+
+    def crash(result):
+        raise RuntimeError("Crash before execution state commit")
+
+    runtime._execution_result = crash
+    with pytest.raises(RuntimeError):
+        run(runtime)
+    manifest = next((storage / "execution").rglob("result.json"))
+    manifest.write_text('{"status":')
+    restarted = build_runtime(store, project, storage, backend, coding)
+    run(restarted)
+    assert restarted.project.status == "completed"
+    assert len(coding.calls) == 1
+    result = store.list(m.Run, project_id=project.id)[0].result
+    assert result.status == "failed"
+    assert "manifest" in result.failure.message.lower()
+    assert next(manifest.parent.glob("result.invalid-*.json")).read_text() == '{"status":'
+    assert not store.list(m.Observation, project_id=project.id)
+
+
+def test_truncated_baseline_execution_manifest_requires_explicit_new_measurement(
+    setup, monkeypatch
+):
+    from argos.evaluation import BaselineRunner
+
+    store, project, storage, backend, coding, runtime = setup
+    original = BaselineRunner.execute
+
+    async def crash(self, *args, **kwargs):
+        await original(self, *args, **kwargs)
+        raise RuntimeError("Crash before baseline state commit")
+
+    monkeypatch.setattr(BaselineRunner, "execute", crash)
+    with pytest.raises(RuntimeError):
+        asyncio.run(refresh_baseline(store, project, storage, rationale="Human baseline"))
+    manifest = next((storage / "baselines").rglob("result.json"))
+    manifest.write_text('{"status":')
+    monkeypatch.setattr(BaselineRunner, "execute", original)
+    with pytest.raises(StateError, match="Baseline failed"):
+        asyncio.run(refresh_baseline(store, project, storage, rationale="Human recovery"))
+    runs = store.list(m.Run, project_id=project.id)
+    assert len(runs) == 1 and runs[0].status == "failed"
+    assert len(runs[0].result.commands) == 3
+    assert runtime.project.baseline_id is None
+    assert not store.runtime_get(project.id, "baseline_cursor")
+    assert next(manifest.parent.glob("result.invalid-*.json")).read_text() == '{"status":'
 
 
 def test_cancelled_execution_is_persisted_and_never_automatically_retried(setup):
@@ -414,7 +475,13 @@ def test_failed_experiment_can_be_followed_by_explicit_successful_attempt(setup)
             if context["frontier"]["failed_runs"] and not proposed_retry:
                 proposed_retry = True
                 previous = store.list(m.Experiment, project_id=project.id)[0]
-                spec = previous.spec.model_copy(update={"experiment_id": uuid4()})
+                spec = previous.spec.model_copy(
+                    update={
+                        "experiment_id": uuid4(),
+                        "retry_of": previous.id,
+                        "recovery_rationale": "Retry implementation after transient coding failure",
+                    }
+                )
                 return json.dumps(
                     {
                         "summary": "Explicitly retry implementation with the same scientific test",

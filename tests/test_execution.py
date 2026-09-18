@@ -438,3 +438,64 @@ def test_cleanup_refuses_incomplete_preservation(setup):
     with pytest.raises(ValueError, match="incomplete"):
         agent.worktrees.cleanup(Path(result.worktree), evidence)
     assert Path(result.worktree).exists()
+
+
+def test_owned_artifacts_reach_coding_and_host_records_actual_revision(setup):
+    from argos.protocols import ArtifactRequirement
+
+    setup[2].required_artifacts = [
+        ArtifactRequirement(path=".argos-coding/implementation.txt", producer="coding"),
+        ArtifactRequirement(path="code.diff", producer="host"),
+        ArtifactRequirement(path="revision.json", producer="host"),
+    ]
+    backend = FakeCodingBackend({".argos-coding/implementation.txt": "Implemented nothing"})
+    _, result = execute(setup, backend)
+    assert result.status == "succeeded"
+    assert [a.path for a in backend.calls[0].required_artifacts] == [
+        ".argos-coding/implementation.txt"
+    ]
+    revision = json.loads((Path(result.diff_path).parent / "revision.json").read_text())
+    assert revision["resulting_commit"] == result.resulting_commit
+    assert result.diff_path in result.artifacts
+
+
+@pytest.mark.parametrize("name", ["evaluate.py", "outside.txt"])
+def test_coding_artifact_scope_rejected_before_backend(setup, name):
+    setup[2].required_artifacts = [{"path": name, "producer": "coding"}]
+    agent, result = execute(setup)
+    assert result.failure.kind == "invalid_modification"
+    assert not agent.backend.calls
+
+
+def test_missing_owned_artifact_identifies_responsible_producer(setup):
+    setup[2].required_artifacts = [{"path": ".argos-coding/missing.txt", "producer": "coding"}]
+    _, result = execute(setup)
+    assert result.failure.kind == "missing_artifact"
+    assert "coding producer" in result.failure.message
+
+
+def test_source_evidence_is_scoped_bounded_and_from_immutable_git(setup):
+    from argos.execution.evidence import source_evidence
+
+    repo, project, _, _ = setup
+    manager = WorktreeManager(repo)
+    revision = manager.source_commit()
+    (repo / "src/main.py").write_text("UNCOMMITTED PRIVATE CHANGE")
+    (repo / "secret.txt").write_text("not in scope")
+    evidence = source_evidence(manager, repo, revision, project.scope)
+    files = {f["path"]: f for f in evidence["files"]}
+    assert "secret.txt" not in files
+    assert files["src/main.py"]["content"] == "print('original')\n"
+    assert files["evaluate.py"]["role"] == "protected"
+    bounded = source_evidence(manager, repo, revision, project.scope, budget=0)
+    assert all("content" not in f and f["git_blob"] for f in bounded["files"])
+    limited = source_evidence(manager, repo, revision, project.scope, max_files=1)
+    assert len(limited["files"]) == 1 and limited["omitted_files"] > 0
+
+
+def test_successful_execution_persists_candidate_source_evidence(setup):
+    _, result = execute(setup, FakeCodingBackend({"src/main.py": "print('candidate')\n"}))
+    assert result.source_evidence["revision"] == result.resulting_commit
+    files = {f["path"]: f for f in result.source_evidence["files"]}
+    assert files["src/main.py"]["content"] == "print('candidate')\n"
+    assert files["evaluate.py"]["content"] == "print('protected evaluator')\n"

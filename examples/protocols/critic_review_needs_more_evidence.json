@@ -11,5 +11,8 @@
   ],
   "requested_checks": [
     "Repeat across multiple seeds."
-  ]
+  ],
+  "measurement_comparability": "comparable",
+  "main_question_support": "uncertain",
+  "assessment_rationale": "Measurements are comparable; the main question needs additional evidence."
 }

@@ -11,5 +11,8 @@
   ],
   "requested_checks": [
     "Narrow the claim to the measured workload."
-  ]
+  ],
+  "measurement_comparability": "comparable",
+  "main_question_support": "uncertain",
+  "assessment_rationale": "Measurements are comparable; the main question needs additional evidence."
 }

@@ -90,6 +90,18 @@ class ExperimentStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+RETRYABLE_EXPERIMENT_STATUSES = frozenset(
+    {
+        ExperimentStatus.IMPLEMENTATION_FAILED,
+        ExperimentStatus.TEST_FAILED,
+        ExperimentStatus.RUN_FAILED,
+        ExperimentStatus.INVALID_RESULT,
+        ExperimentStatus.TIMEOUT,
+        ExperimentStatus.CANCELLED,
+    }
+)
+
+
 class RunStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"

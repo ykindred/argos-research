@@ -14,7 +14,7 @@ from uuid import UUID, uuid4, uuid5
 from pydantic import Field
 
 from argos import models as m
-from argos.common import EntityReference, Model
+from argos.common import RETRYABLE_EXPERIMENT_STATUSES, EntityReference, Model
 from argos.protocols import CriticReview
 
 T = TypeVar("T", bound=m.Entity)
@@ -63,6 +63,7 @@ class StateSnapshot(Model):
     active_branches: list[m.ResearchBranch]
     hypotheses: list[m.Hypothesis]
     recent_experiments: list[m.Experiment]
+    recent_runs: list[m.Run] = Field(default_factory=list)
     recent_observations: list[m.Observation]
     candidate_claims: list[m.Claim]
     failed_directions: list[m.Hypothesis]
@@ -412,6 +413,12 @@ class StateStore:
             if branch and branch.subproblem_id != entity.subproblem_id:
                 raise StateError("Hypothesis branch belongs to another subproblem")
         if isinstance(entity, m.Experiment):
+            previous = ref(m.Experiment, entity.spec.retry_of, "retry_of")
+            if previous and (
+                previous.status not in RETRYABLE_EXPERIMENT_STATUSES
+                or previous.spec.hypothesis_id != entity.spec.hypothesis_id
+            ):
+                raise StateError("Retry must link a failed experiment of the same hypothesis")
             hypothesis = ref(m.Hypothesis, entity.spec.hypothesis_id, "hypothesis_id")
             if entity.spec.hypothesis_statement != hypothesis.statement:
                 raise StateError("Experiment must preserve the referenced hypothesis statement")
@@ -608,6 +615,7 @@ class StateStore:
             "active_branches": (m.ResearchBranch, ["active", "paused"]),
             "hypotheses": (m.Hypothesis, ["proposed", "testing", "supported", "inconclusive"]),
             "recent_experiments": (m.Experiment, None),
+            "recent_runs": (m.Run, ["succeeded"]),
             "recent_observations": (m.Observation, None),
             "candidate_claims": (m.Claim, ["active"]),
             "failed_directions": (m.Hypothesis, ["rejected", "contradicted"]),

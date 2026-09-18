@@ -619,6 +619,40 @@ def test_synthesis_rejects_duplicate_or_cross_project_results(setup):
         asyncio.run(manager.synthesize(store.snapshot(project.id), batch, task_id=uuid4()))
 
 
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+def test_synthesis_cannot_recursively_request_itself(setup, repair_succeeds):
+    store, _, project, dispatch, _ = setup
+    backend = FakeLLMBackend({task.id: [reply(task)] for task in dispatch.action.tasks})
+    batch = asyncio.run(
+        ResearchDispatcher(ResearchAgent(StructuredCaller(backend))).dispatch(dispatch)
+    )
+    ident = uuid4()
+    bad = plan(
+        action(project, "synthesize", task_ids=[task.id for task in dispatch.action.tasks])
+    ).model_dump_json()
+    good = plan(
+        action(
+            project,
+            "create_hypothesis",
+            subproblem_id=dispatch.action.tasks[0].subproblem_id,
+            statement="The combined evidence motivates a controlled pilot.",
+            rationale="Assess the joined results before choosing an experiment",
+        )
+    ).model_dump_json()
+    backend = FakeLLMBackend({ident: [bad, good if repair_succeeds else bad]})
+    outcome = asyncio.run(
+        ResearchManager(StructuredCaller(backend)).synthesize(
+            store.snapshot(project.id), batch, task_id=ident
+        )
+    )
+    assert outcome.task.status == ("completed" if repair_succeeds else "failed")
+    assert outcome.task.repair_attempts == 1
+    assert len(backend.requests) == 2
+    assert "already synthesis" in backend.requests[1].repair_error
+    assert "This call IS the synthesis step" in backend.requests[0].system_prompt
+    assert not store.list(m.Hypothesis)  # A role proposes; only host code applies it.
+
+
 def test_research_state_writer_rejects_foreign_hypothesis_without_decision(setup):
     store, writer, project, _, _ = setup
     other_data = project.model_dump()
@@ -635,3 +669,29 @@ def test_research_state_writer_rejects_foreign_hypothesis_without_decision(setup
     with pytest.raises(StateError, match="Cross-project"):
         writer.apply(action(project, "select_hypothesis", hypothesis_id=hyp.id), cycle=1)
     assert store.list(m.Decision) == before
+
+
+@pytest.mark.parametrize("status", ["implementation_failed", "completed", "planned"])
+def test_execution_plan_rejects_reuse_and_repairs_before_any_action(setup, status):
+    store, _, project, _, _ = setup
+    data = json.loads((EXAMPLES / "entities.json").read_text())
+    store.create(m.ResearchBranch.model_validate(data["research_branch"]))
+    hypothesis = store.create(m.Hypothesis.model_validate(data["hypothesis"]))
+    experiment = m.Experiment.model_validate(data["experiment"])
+    experiment.spec.hypothesis_id = hypothesis.id
+    experiment.status = status
+    store.create(experiment)
+    execute = action(project, "implement_experiment", experiment_id=experiment.id)
+    # planned is legal once, never twice; terminal experiments are never legal.
+    bad = plan(execute, execute) if status == "planned" else plan(execute)
+    good = plan(action(project, "stop", reason="No automatic replay; evidence retained"))
+    task = uuid4()
+    backend = FakeLLMBackend({task: [bad.model_dump_json(), good.model_dump_json()]})
+    result = asyncio.run(
+        ResearchManager(StructuredCaller(backend)).plan(
+            store.snapshot(project.id), task_id=task, event="component_failed"
+        )
+    )
+    assert result.task.repair_attempts == 1
+    assert result.output.actions[0].action.action_type == "stop"
+    assert store.get(m.Experiment, experiment.id).status == status

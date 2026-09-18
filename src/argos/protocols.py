@@ -1,6 +1,7 @@
 """Validated messages between components; no execution or state mutation logic."""
 
 from enum import StrEnum
+from pathlib import PurePosixPath
 from typing import Annotated, Literal, Self
 
 from pydantic import Field, JsonValue, model_validator
@@ -77,6 +78,33 @@ class ResearchAgentResult(Model):
     summary: Text
 
 
+class ArtifactRequirement(Model):
+    """Producer is explicit; host paths refer to the trusted evidence directory."""
+
+    path: Text
+    producer: Literal["host", "coding", "experiment"]
+
+    @model_validator(mode="after")
+    def safe_path(self) -> Self:
+        path = PurePosixPath(self.path)
+        if (
+            not path.parts
+            or path.is_absolute()
+            or ".." in path.parts
+            or ".git" in path.parts
+            or "\\" in self.path
+        ):
+            raise ValueError("Artifact must have a safe relative path")
+        if self.producer == "host" and self.path not in {
+            "code.diff",
+            "stdout.log",
+            "stderr.log",
+            "revision.json",
+        }:
+            raise ValueError("Host artifacts are code.diff, stdout.log, stderr.log, revision.json")
+        return self
+
+
 class ExperimentSpec(Model):
     experiment_id: EntityId
     hypothesis_id: EntityId
@@ -94,10 +122,29 @@ class ExperimentSpec(Model):
     evaluation_protocol: EvaluationProtocol
     resource_limits: ResourceLimits
     scope: PathScope | None = None
-    required_artifacts: list[Text] = Field(default_factory=list)
+    required_artifacts: list[ArtifactRequirement | Text] = Field(default_factory=list)
+    retry_of: EntityId | None = None
+    recovery_rationale: Text | None = None
+
+    @property
+    def artifact_requirements(self) -> list[ArtifactRequirement]:
+        return [
+            ArtifactRequirement(path=a, producer="experiment") if isinstance(a, str) else a
+            for a in self.required_artifacts
+        ]
 
     @model_validator(mode="after")
     def nonempty_commands(self) -> Self:
+        if (self.retry_of is None) != (self.recovery_rationale is None):
+            raise ValueError("Retry requires both retry_of and a concrete recovery_rationale")
+        if self.retry_of == self.experiment_id:
+            raise ValueError("Retry must create a new experiment identity")
+        keys = [
+            ("experiment", a) if isinstance(a, str) else (a.producer, a.path)
+            for a in self.required_artifacts
+        ]
+        if len(set(keys)) != len(keys):
+            raise ValueError("Duplicate artifact requirement")
         if any(not step for step in self.build_steps + self.test_steps + self.run_steps):
             raise ValueError("Execution steps must contain a nonempty argv")
         return self
@@ -116,6 +163,7 @@ class ExperimentResult(Model):
     source_commit: Text
     resulting_commit: Text | None
     configuration: dict[str, JsonValue]
+    source_evidence: dict[str, JsonValue] = Field(default_factory=dict)
     commands: list[CommandRecord]
     artifacts: list[Text]
     failure: ExecutionFailure | None = None
@@ -198,6 +246,13 @@ class CriticReview(Model):
     weaknesses: list[Text]
     risks: list[Text]
     requested_checks: list[Text]
+    measurement_comparability: Literal[
+        "comparable", "not_comparable", "uncertain", "not_assessed"
+    ] = "not_assessed"
+    main_question_support: Literal["supports", "does_not_support", "uncertain", "not_assessed"] = (
+        "not_assessed"
+    )
+    assessment_rationale: Text | None = None
 
     @model_validator(mode="after")
     def actionable_evidence_request(self) -> Self:
@@ -410,6 +465,7 @@ class CodingTask(Model):
     requested_change: Text
     scope: PathScope
     project_scope: PathScope | None = None
+    required_artifacts: list[ArtifactRequirement] = Field(default_factory=list)
 
 
 class CodingResult(Model):
